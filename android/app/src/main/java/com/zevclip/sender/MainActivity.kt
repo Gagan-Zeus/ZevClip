@@ -2,6 +2,8 @@ package com.zevclip.sender
 
 import android.app.Activity
 import android.app.StatusBarManager
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Intent
 import android.content.SharedPreferences
@@ -28,6 +30,7 @@ class MainActivity : Activity() {
     private lateinit var pairingTokenInput: EditText
     private lateinit var textInput: EditText
     private lateinit var sendButton: Button
+    private lateinit var pullButton: Button
     private lateinit var statusText: TextView
     private lateinit var discoverButton: Button
     private lateinit var discoveryStatusText: TextView
@@ -222,6 +225,18 @@ class MainActivity : Activity() {
         }
         content.addView(portInput, matchWidth())
 
+        content.addView(sectionTitle(R.string.pull_mac_clipboard_title))
+        content.addView(
+            textView(getString(R.string.pull_mac_clipboard_instructions), 14f, Color.DKGRAY),
+            matchWidth()
+        )
+        pullButton = Button(this).apply {
+            text = getString(R.string.pull_mac_clipboard)
+            isAllCaps = false
+            setOnClickListener { pullMacClipboard() }
+        }
+        content.addView(pullButton, matchWidth(topMargin = 8))
+
         content.addView(fieldLabel(R.string.text_label))
         textInput = EditText(this).apply {
             hint = getString(R.string.text_hint)
@@ -302,6 +317,66 @@ class MainActivity : Activity() {
                     is SendResult.Failure -> showFailure(result.message)
                 }
             }
+        }
+    }
+
+    private fun pullMacClipboard() {
+        val ipAddress = ipAddressInput.text.toString().trim()
+        val portText = portInput.text.toString().trim()
+
+        if (!NetworkInputValidator.validateIPv4(ipAddress)) {
+            showFailure("Enter a valid IPv4 address, for example 192.168.1.10.")
+            ipAddressInput.requestFocus()
+            return
+        }
+
+        val port = NetworkInputValidator.parsePort(portText)
+        if (port == null) {
+            showFailure("Enter a port between 1 and 65535.")
+            portInput.requestFocus()
+            return
+        }
+
+        val pairingToken = pairingTokenInput.text.toString().trim()
+        if (pairingToken.isEmpty()) {
+            showFailure("Enter the pairing token shown on the Mac.")
+            pairingTokenInput.requestFocus()
+            return
+        }
+
+        ZevClipPreferences.saveEndpoint(this, ipAddress, port.toString())
+        ZevClipPreferences.savePairingToken(this, pairingToken)
+
+        pullButton.isEnabled = false
+        statusText.setTextColor(Color.DKGRAY)
+        statusText.text = getString(
+            R.string.pulling_from_endpoint,
+            "http://$ipAddress:$port/clipboard"
+        )
+
+        thread(name = "ZevClipPuller") {
+            val result = ClipboardSender.pull(ipAddress, port, pairingToken)
+            runOnUiThread {
+                if (isDestroyed) return@runOnUiThread
+
+                pullButton.isEnabled = true
+                when (result) {
+                    is PullResult.Success -> copyPulledTextToAndroidClipboard(result.text)
+                    PullResult.Empty -> showFailure(getString(R.string.pull_empty))
+                    is PullResult.Failure -> showFailure(result.message)
+                }
+            }
+        }
+    }
+
+    private fun copyPulledTextToAndroidClipboard(text: String) {
+        try {
+            val clipboard = getSystemService(ClipboardManager::class.java)
+            val clip = ClipData.newPlainText(getString(R.string.mac_clipboard_clip_label), text)
+            clipboard.setPrimaryClip(clip)
+            showSuccess(getString(R.string.pull_success, text.toByteArray(Charsets.UTF_8).size))
+        } catch (error: SecurityException) {
+            showFailure("Android blocked the clipboard update: ${error.message ?: "permission denied"}")
         }
     }
 

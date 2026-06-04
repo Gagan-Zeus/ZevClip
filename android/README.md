@@ -1,7 +1,7 @@
 # ZevClip Android Sender
 
-This native Kotlin Android app sends UTF-8 text to the ZevClip macOS receiver
-over the local network.
+This native Kotlin Android app syncs UTF-8 clipboard text with the ZevClip
+macOS receiver over the local network.
 
 It includes:
 
@@ -11,6 +11,7 @@ It includes:
   tile.
 - Bonjour/mDNS discovery of the Mac receiver through Android NSD.
 - Simple pairing through a shared token sent as `X-ZevClip-Token`.
+- Manual Mac-to-Android clipboard pull from the focused app UI.
 - No polling loop, foreground service, wakelock, cloud service, or encryption.
 
 The app uses Android platform APIs and `HttpURLConnection`. It has no runtime
@@ -130,6 +131,24 @@ pbpaste
 
 The output should match the text sent from Android.
 
+### 9. Pull the Mac clipboard to Android
+
+1. Copy text on the Mac, or run:
+
+   ```sh
+   printf 'Hello from Mac' | pbcopy
+   ```
+
+2. Open ZevClip on Android.
+3. Confirm the Mac IP, port, and pairing token are saved.
+4. Tap **Pull Mac Clipboard**.
+5. Paste in any Android text field.
+
+If the Mac clipboard contains text, ZevClip copies it into Android's
+`ClipboardManager`. If the Mac clipboard is empty or non-text, the app reports
+`Mac clipboard is empty/non-text.` If the app reports `Pairing token mismatch.`,
+paste the current Mac token again and tap **Save Pairing Token**.
+
 ## Manual Send fallback
 
 Enter text in ZevClip and tap **Send to Mac**. The status message should show
@@ -146,6 +165,22 @@ must be updated.
 
 Manual Send remains available because Accessibility Service detection and
 Bonjour discovery are best-effort.
+
+## Mac to Android pull
+
+Mac-to-Android sync is manual/focused for this MVP. Android sends:
+
+```http
+GET /clipboard
+X-ZevClip-Token: <pairing-token>
+```
+
+The Mac returns HTTP `200` with `text/plain; charset=utf-8` when the current
+Mac clipboard has text, `204 No Content` when it is empty or non-text, and
+`401 Unauthorized` when the token is missing or wrong.
+
+This avoids polling and avoids relying on restricted background clipboard
+access.
 
 ## Accessibility limitations
 

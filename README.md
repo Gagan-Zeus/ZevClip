@@ -1,9 +1,11 @@
 # ZevClip macOS Receiver
 
-ZevClip is a native SwiftUI macOS app that accepts clipboard text over the
-local network and writes it to `NSPasteboard.general`. While the receiver is
-running, it advertises `ZevClip Mac Receiver` as `_zevclip._tcp` using Bonjour
-so the Android app can find it without manual IP entry.
+ZevClip is a native SwiftUI macOS app that syncs clipboard text with Android
+over the local network. Android can push text to the Mac with `POST
+/clipboard`, and Android can pull the current Mac clipboard with `GET
+/clipboard`. While the receiver is running, it advertises `ZevClip Mac
+Receiver` as `_zevclip._tcp` using Bonjour so the Android app can find it
+without manual IP entry.
 
 The receiver also requires a shared pairing token. Android sends this token in
 the `X-ZevClip-Token` header on every clipboard request; missing or wrong
@@ -35,9 +37,44 @@ on the same subnet for Bonjour discovery.
 2. Open ZevClip on Android.
 3. Tap **Discover Mac**.
 4. Copy the Mac pairing token into Android and tap **Save Pairing Token**.
-5. Send a manual test message or use one of the clipboard sync actions.
+5. Send a manual test message, use one of the Android-to-Mac clipboard sync
+   actions, or tap **Pull Mac Clipboard** to copy the Mac clipboard onto
+   Android.
+
+## Sync flows
+
+### Android to Mac
+
+Android sends plain UTF-8 text with:
+
+```http
+POST /clipboard
+X-ZevClip-Token: <pairing-token>
+Content-Type: text/plain; charset=utf-8
+```
+
+The Mac validates the token and writes the request body to
+`NSPasteboard.general`.
+
+### Mac to Android
+
+Android fetches the current Mac clipboard with:
+
+```http
+GET /clipboard
+X-ZevClip-Token: <pairing-token>
+```
+
+If the Mac clipboard contains text, the receiver returns HTTP `200` with
+`text/plain; charset=utf-8`. If the clipboard is empty or non-text, it returns
+HTTP `204 No Content`. Missing or wrong tokens return HTTP `401`.
+
+This flow is intentionally manual/focused in the Android app because Android
+background clipboard writes and reads are restricted on modern OS builds.
 
 ## Test locally
+
+Android to Mac:
 
 ```sh
 curl --data-binary 'Hello from Android' \
@@ -46,9 +83,16 @@ curl --data-binary 'Hello from Android' \
   http://localhost:9876/clipboard
 ```
 
+Mac to Android protocol check:
+
+```sh
+curl -H 'X-ZevClip-Token: paste-token-from-mac' \
+  http://localhost:9876/clipboard
+```
+
 For another device on the same network, replace `localhost` with the Mac's
 local IP address and include the `X-ZevClip-Token` header. HTTP `401` means the
 header is missing or the token does not match the Mac. Manual IP entry remains
 available in the Android app if Bonjour discovery is blocked by network
-isolation. The MVP has no
-encryption, so only run it on a trusted local network.
+isolation. The MVP has no encryption, so only run it on a trusted local
+network.

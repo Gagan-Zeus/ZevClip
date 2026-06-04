@@ -12,6 +12,12 @@ sealed interface SendResult {
     data class Failure(val message: String) : SendResult
 }
 
+sealed interface PullResult {
+    data class Success(val text: String) : PullResult
+    data object Empty : PullResult
+    data class Failure(val message: String) : PullResult
+}
+
 object ClipboardSender {
     private const val CONNECT_TIMEOUT_MS = 5_000
     private const val READ_TIMEOUT_MS = 5_000
@@ -65,7 +71,53 @@ object ClipboardSender {
         }
     }
 
-    private fun readResponseBody(connection: HttpURLConnection, responseCode: Int): String {
+    fun pull(ipAddress: String, port: Int, pairingToken: String): PullResult {
+        var connection: HttpURLConnection? = null
+
+        return try {
+            val activeConnection = URL("http://$ipAddress:$port/clipboard")
+                .openConnection() as HttpURLConnection
+            connection = activeConnection
+
+            activeConnection.requestMethod = "GET"
+            activeConnection.connectTimeout = CONNECT_TIMEOUT_MS
+            activeConnection.readTimeout = READ_TIMEOUT_MS
+            activeConnection.setRequestProperty("X-ZevClip-Token", pairingToken)
+
+            when (val responseCode = activeConnection.responseCode) {
+                HttpURLConnection.HTTP_OK -> {
+                    val text = readResponseBody(activeConnection, responseCode, trim = false)
+                    PullResult.Success(text)
+                }
+                HttpURLConnection.HTTP_NO_CONTENT -> PullResult.Empty
+                HttpURLConnection.HTTP_UNAUTHORIZED ->
+                    PullResult.Failure("Pairing token mismatch.")
+                else -> {
+                    val responseBody = readResponseBody(activeConnection, responseCode)
+                    val detail = responseBody.takeIf { it.isNotEmpty() }?.let { ": $it" }.orEmpty()
+                    PullResult.Failure("Mac receiver returned HTTP $responseCode$detail")
+                }
+            }
+        } catch (_: SocketTimeoutException) {
+            PullResult.Failure("Connection timed out. Check the Mac IP, port, and Wi-Fi network.")
+        } catch (_: ConnectException) {
+            PullResult.Failure("Connection refused. Confirm the Mac receiver is running on port $port.")
+        } catch (_: NoRouteToHostException) {
+            PullResult.Failure("Mac is unreachable. Confirm both devices are on the same local network.")
+        } catch (error: IOException) {
+            PullResult.Failure("Network error: ${error.message ?: "request failed"}")
+        } catch (error: SecurityException) {
+            PullResult.Failure("Android blocked the clipboard pull: ${error.message ?: "permission denied"}")
+        } finally {
+            connection?.disconnect()
+        }
+    }
+
+    private fun readResponseBody(
+        connection: HttpURLConnection,
+        responseCode: Int,
+        trim: Boolean = true
+    ): String {
         val stream = if (responseCode in 200..299) {
             connection.inputStream
         } else {
@@ -73,7 +125,12 @@ object ClipboardSender {
         } ?: return ""
 
         return stream.bufferedReader(Charsets.UTF_8).use { reader ->
-            reader.readText().trim().take(MAX_RESPONSE_PREVIEW)
+            val text = reader.readText()
+            if (trim) {
+                text.trim().take(MAX_RESPONSE_PREVIEW)
+            } else {
+                text
+            }
         }
     }
 }
