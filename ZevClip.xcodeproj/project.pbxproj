@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		3F129658B18A045EB75D744E /* PairingTokenKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = D349EA03D0A76DC6B676F25E /* PairingTokenKeychain.swift */; };
 		5B2A64EEB803EC30746CA86F /* ClipboardReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08BB497EA327D472BA901879 /* ClipboardReceiver.swift */; };
 		B8CA797C763F040EDE0356DE /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 320BFAD0195F6C551F287AC0 /* ContentView.swift */; };
 		C405F78AD025A73FDB6198B8 /* ZevClipApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AA610A696A5F3C375689D0B /* ZevClipApp.swift */; };
@@ -20,6 +21,7 @@
 		4AFF2250F5F626D53C0BE6CF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		5BAF94C62FB5C5E506492DFD /* ClipboardHTTPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardHTTPServer.swift; sourceTree = "<group>"; };
 		7AA610A696A5F3C375689D0B /* ZevClipApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZevClipApp.swift; sourceTree = "<group>"; };
+		D349EA03D0A76DC6B676F25E /* PairingTokenKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingTokenKeychain.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -79,6 +81,7 @@
 			isa = PBXGroup;
 			children = (
 				5BAF94C62FB5C5E506492DFD /* ClipboardHTTPServer.swift */,
+				D349EA03D0A76DC6B676F25E /* PairingTokenKeychain.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -141,6 +144,7 @@
 				F720DDC4973512A61918258B /* ClipboardHTTPServer.swift in Sources */,
 				5B2A64EEB803EC30746CA86F /* ClipboardReceiver.swift in Sources */,
 				B8CA797C763F040EDE0356DE /* ContentView.swift in Sources */,
+				3F129658B18A045EB75D744E /* PairingTokenKeychain.swift in Sources */,
 				C405F78AD025A73FDB6198B8 /* ZevClipApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

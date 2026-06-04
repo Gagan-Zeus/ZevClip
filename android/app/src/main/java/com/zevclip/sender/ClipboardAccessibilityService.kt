@@ -118,6 +118,9 @@ class ClipboardAccessibilityService : AccessibilityService() {
                 ClipboardSyncResult.NoEndpoint -> {
                     updateStatus("Skipped: enter a valid Mac IP and port in ZevClip.")
                 }
+                ClipboardSyncResult.NoToken -> {
+                    updateStatus("Skipped: enter the Mac pairing token in ZevClip.")
+                }
                 ClipboardSyncResult.Duplicate -> {
                     Log.d(TAG, "Ignoring clipboard text already sent or in flight")
                 }

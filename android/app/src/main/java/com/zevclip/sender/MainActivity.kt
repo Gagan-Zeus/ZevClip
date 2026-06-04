@@ -25,11 +25,13 @@ import kotlin.concurrent.thread
 class MainActivity : Activity() {
     private lateinit var ipAddressInput: EditText
     private lateinit var portInput: EditText
+    private lateinit var pairingTokenInput: EditText
     private lateinit var textInput: EditText
     private lateinit var sendButton: Button
     private lateinit var statusText: TextView
     private lateinit var discoverButton: Button
     private lateinit var discoveryStatusText: TextView
+    private lateinit var pairingStatusText: TextView
     private lateinit var accessibilityStatusText: TextView
     private lateinit var lastAutoStatusText: TextView
     private lateinit var tileStatusText: TextView
@@ -84,6 +86,7 @@ class MainActivity : Activity() {
             ipAddressInput.text.toString(),
             portInput.text.toString()
         )
+        ZevClipPreferences.savePairingToken(this, pairingTokenInput.text.toString())
         super.onPause()
     }
 
@@ -128,6 +131,35 @@ class MainActivity : Activity() {
             setPadding(0, dp(12), 0, dp(8))
         }
         content.addView(discoveryStatusText, matchWidth())
+        content.addView(divider(), dividerLayoutParams(topMargin = 12))
+
+        content.addView(sectionTitle(R.string.pairing_title))
+        content.addView(
+            textView(getString(R.string.pairing_instructions), 14f, Color.DKGRAY),
+            matchWidth()
+        )
+        content.addView(fieldLabel(R.string.pairing_token_label))
+        pairingTokenInput = EditText(this).apply {
+            hint = getString(R.string.pairing_token_hint)
+            inputType = InputType.TYPE_CLASS_TEXT or
+                InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD or
+                InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            isSingleLine = true
+            imeOptions = EditorInfo.IME_ACTION_DONE
+            setText(preferences.getString(ZevClipPreferences.KEY_PAIRING_TOKEN, ""))
+        }
+        content.addView(pairingTokenInput, matchWidth())
+
+        content.addView(Button(this).apply {
+            text = getString(R.string.save_pairing_token)
+            isAllCaps = false
+            setOnClickListener { savePairingTokenFromUi() }
+        }, matchWidth(topMargin = 8))
+
+        pairingStatusText = textView(getString(R.string.pairing_token_not_saved), 14f, Color.DKGRAY).apply {
+            setPadding(0, dp(12), 0, dp(8))
+        }
+        content.addView(pairingStatusText, matchWidth())
         content.addView(divider(), dividerLayoutParams(topMargin = 12))
 
         content.addView(sectionTitle(R.string.auto_send_title))
@@ -242,7 +274,15 @@ class MainActivity : Activity() {
             return
         }
 
+        val pairingToken = pairingTokenInput.text.toString().trim()
+        if (pairingToken.isEmpty()) {
+            showFailure("Enter the pairing token shown on the Mac.")
+            pairingTokenInput.requestFocus()
+            return
+        }
+
         ZevClipPreferences.saveEndpoint(this, ipAddress, port.toString())
+        ZevClipPreferences.savePairingToken(this, pairingToken)
 
         sendButton.isEnabled = false
         statusText.setTextColor(Color.DKGRAY)
@@ -252,7 +292,7 @@ class MainActivity : Activity() {
         )
 
         thread(name = "ZevClipSender") {
-            val result = ClipboardSender.send(ipAddress, port, text)
+            val result = ClipboardSender.send(ipAddress, port, text, pairingToken)
             runOnUiThread {
                 if (isDestroyed) return@runOnUiThread
 
@@ -263,6 +303,20 @@ class MainActivity : Activity() {
                 }
             }
         }
+    }
+
+    private fun savePairingTokenFromUi() {
+        val token = pairingTokenInput.text.toString().trim()
+        if (token.isEmpty()) {
+            pairingStatusText.setTextColor(Color.rgb(180, 32, 32))
+            pairingStatusText.text = getString(R.string.pairing_token_empty)
+            pairingTokenInput.requestFocus()
+            return
+        }
+
+        ZevClipPreferences.savePairingToken(this, token)
+        pairingStatusText.setTextColor(Color.rgb(24, 120, 54))
+        pairingStatusText.text = getString(R.string.pairing_token_saved)
     }
 
     private fun showSuccess(message: String) {
@@ -302,6 +356,18 @@ class MainActivity : Activity() {
         discoveryStatusText.text = getString(
             R.string.discovery_status,
             ZevClipPreferences.discoveryStatus(this)
+        )
+
+        val hasToken = ZevClipPreferences.pairingToken(this).isNotEmpty()
+        pairingStatusText.setTextColor(
+            if (hasToken) Color.rgb(24, 120, 54) else Color.DKGRAY
+        )
+        pairingStatusText.text = getString(
+            if (hasToken) {
+                R.string.pairing_token_saved
+            } else {
+                R.string.pairing_token_not_saved
+            }
         )
     }
 

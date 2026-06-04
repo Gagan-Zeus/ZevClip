@@ -17,7 +17,7 @@ object ClipboardSender {
     private const val READ_TIMEOUT_MS = 5_000
     private const val MAX_RESPONSE_PREVIEW = 200
 
-    fun send(ipAddress: String, port: Int, text: String): SendResult {
+    fun send(ipAddress: String, port: Int, text: String, pairingToken: String): SendResult {
         var connection: HttpURLConnection? = null
 
         return try {
@@ -32,6 +32,7 @@ object ClipboardSender {
             activeConnection.readTimeout = READ_TIMEOUT_MS
             activeConnection.doOutput = true
             activeConnection.setRequestProperty("Content-Type", "text/plain; charset=utf-8")
+            activeConnection.setRequestProperty("X-ZevClip-Token", pairingToken)
             activeConnection.setFixedLengthStreamingMode(body.size)
 
             activeConnection.outputStream.use { output ->
@@ -43,6 +44,8 @@ object ClipboardSender {
 
             if (responseCode in 200..299) {
                 SendResult.Success("Sent successfully (HTTP $responseCode).")
+            } else if (responseCode == 401) {
+                SendResult.Failure("Pairing token rejected (HTTP 401). Check the token shown on the Mac.")
             } else {
                 val detail = responseBody.takeIf { it.isNotEmpty() }?.let { ": $it" }.orEmpty()
                 SendResult.Failure("Mac receiver returned HTTP $responseCode$detail")

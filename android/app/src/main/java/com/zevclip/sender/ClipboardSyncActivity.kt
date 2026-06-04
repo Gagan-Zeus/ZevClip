@@ -77,6 +77,13 @@ class ClipboardSyncActivity : Activity() {
                     )
                     complete("No Mac IP", "No valid Mac IP and port.")
                 }
+                ClipboardSyncResult.NoToken -> {
+                    Log.i(
+                        ClipboardTileService.TAG,
+                        "Quick Settings clipboard sync skipped: no pairing token"
+                    )
+                    complete("No Token", "No pairing token.")
+                }
                 ClipboardSyncResult.Duplicate -> {
                     Log.i(
                         ClipboardTileService.TAG,

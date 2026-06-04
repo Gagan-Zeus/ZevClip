@@ -30,12 +30,16 @@ final class ClipboardReceiver: ObservableObject {
     @Published private(set) var status: ServerStatus = .stopped
     @Published private(set) var detailMessage = "Server is stopped."
     @Published private(set) var isAdvertising = false
+    @Published private(set) var pairingToken = ""
+    @Published private(set) var pairingStatus = "Pairing token is not loaded."
     @Published private(set) var lastReceivedText: String?
     @Published private(set) var lastReceivedAt: Date?
 
     private let server = ClipboardHTTPServer()
+    private let tokenProvider = PairingTokenProvider(token: "")
 
     init() {
+        loadPairingToken()
         startServer()
     }
 
@@ -58,6 +62,9 @@ final class ClipboardReceiver: ObservableObject {
             port: Self.port,
             serviceName: Self.serviceName,
             serviceType: Self.serviceType,
+            tokenProvider: { [tokenProvider] in
+                tokenProvider.currentToken()
+            },
             onReady: { [weak self] in
                 Task { @MainActor in
                     self?.status = .running
@@ -93,11 +100,38 @@ final class ClipboardReceiver: ObservableObject {
         detailMessage = "Server is stopped."
     }
 
+    func regeneratePairingToken() {
+        do {
+            let token = try PairingTokenKeychain.regenerateToken()
+            updatePairingToken(token, status: "Pairing token regenerated and saved in Keychain.")
+            detailMessage = "Pairing token regenerated. Update Android before sending again."
+        } catch {
+            pairingStatus = error.localizedDescription
+            detailMessage = error.localizedDescription
+        }
+    }
+
     private var isFailed: Bool {
         if case .failed = status {
             return true
         }
         return false
+    }
+
+    private func loadPairingToken() {
+        do {
+            let token = try PairingTokenKeychain.loadOrCreateToken()
+            updatePairingToken(token, status: "Pairing token loaded from Keychain.")
+        } catch {
+            pairingStatus = error.localizedDescription
+            detailMessage = error.localizedDescription
+        }
+    }
+
+    private func updatePairingToken(_ token: String, status: String) {
+        pairingToken = token
+        pairingStatus = status
+        tokenProvider.updateToken(token)
     }
 
     private func receive(_ text: String) {

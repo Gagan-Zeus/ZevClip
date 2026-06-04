@@ -10,6 +10,7 @@ final class ClipboardHTTPServer {
         port: UInt16,
         serviceName: String,
         serviceType: String,
+        tokenProvider: @escaping () -> String,
         onReady: @escaping () -> Void,
         onAdvertisingChanged: @escaping (Bool) -> Void,
         onFailure: @escaping (String) -> Void,
@@ -20,6 +21,7 @@ final class ClipboardHTTPServer {
                 port: port,
                 serviceName: serviceName,
                 serviceType: serviceType,
+                tokenProvider: tokenProvider,
                 onReady: onReady,
                 onAdvertisingChanged: onAdvertisingChanged,
                 onFailure: onFailure,
@@ -45,6 +47,7 @@ final class ClipboardHTTPServer {
         port: UInt16,
         serviceName: String,
         serviceType: String,
+        tokenProvider: @escaping () -> String,
         onReady: @escaping () -> Void,
         onAdvertisingChanged: @escaping (Bool) -> Void,
         onFailure: @escaping (String) -> Void,
@@ -98,7 +101,7 @@ final class ClipboardHTTPServer {
             }
 
             newListener.newConnectionHandler = { [weak self] connection in
-                self?.accept(connection, onText: onText)
+                self?.accept(connection, tokenProvider: tokenProvider, onText: onText)
             }
 
             newListener.start(queue: queue)
@@ -109,11 +112,16 @@ final class ClipboardHTTPServer {
         }
     }
 
-    private func accept(_ connection: NWConnection, onText: @escaping (String) -> Void) {
+    private func accept(
+        _ connection: NWConnection,
+        tokenProvider: @escaping () -> String,
+        onText: @escaping (String) -> Void
+    ) {
         let id = ObjectIdentifier(connection)
         let httpConnection = HTTPConnection(
             connection: connection,
             queue: queue,
+            tokenProvider: tokenProvider,
             onText: onText,
             onClose: { [weak self] in
                 self?.connections[id] = nil
@@ -139,6 +147,7 @@ private final class HTTPConnection {
 
     private let connection: NWConnection
     private let queue: DispatchQueue
+    private let tokenProvider: () -> String
     private let onText: (String) -> Void
     private let onClose: () -> Void
 
@@ -151,11 +160,13 @@ private final class HTTPConnection {
     init(
         connection: NWConnection,
         queue: DispatchQueue,
+        tokenProvider: @escaping () -> String,
         onText: @escaping (String) -> Void,
         onClose: @escaping () -> Void
     ) {
         self.connection = connection
         self.queue = queue
+        self.tokenProvider = tokenProvider
         self.onText = onText
         self.onClose = onClose
     }
@@ -287,6 +298,13 @@ private final class HTTPConnection {
             let name = line[..<colon].trimmingCharacters(in: .whitespaces).lowercased()
             let value = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
             headers[name] = value
+        }
+
+        let expectedToken = tokenProvider()
+        let providedToken = headers["x-zevclip-token"]
+        guard !expectedToken.isEmpty, providedToken == expectedToken else {
+            respond(status: "401 Unauthorized", body: "Missing or invalid ZevClip pairing token.")
+            return true
         }
 
         guard let contentLengthValue = headers["content-length"] else {

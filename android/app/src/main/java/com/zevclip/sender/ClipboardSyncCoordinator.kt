@@ -8,6 +8,7 @@ sealed interface ClipboardSyncResult {
     data class Success(val characterCount: Int) : ClipboardSyncResult
     data object Empty : ClipboardSyncResult
     data object NoEndpoint : ClipboardSyncResult
+    data object NoToken : ClipboardSyncResult
     data object Duplicate : ClipboardSyncResult
     data class Failure(val message: String) : ClipboardSyncResult
 }
@@ -35,6 +36,12 @@ object ClipboardSyncCoordinator {
             return
         }
 
+        val pairingToken = ZevClipPreferences.pairingToken(context)
+        if (pairingToken.isBlank()) {
+            onComplete(ClipboardSyncResult.NoToken)
+            return
+        }
+
         val textHash = sha256(text)
         val shouldSend = synchronized(sendStateLock) {
             val lastSentHash = ZevClipPreferences.lastSentHash(context)
@@ -52,7 +59,7 @@ object ClipboardSyncCoordinator {
         }
 
         networkExecutor.execute {
-            val result = ClipboardSender.send(endpoint.ipAddress, endpoint.port, text)
+            val result = ClipboardSender.send(endpoint.ipAddress, endpoint.port, text, pairingToken)
 
             synchronized(sendStateLock) {
                 pendingHashes -= textHash

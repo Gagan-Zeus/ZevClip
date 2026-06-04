@@ -10,8 +10,8 @@ It includes:
 - User-invoked clipboard sending through a Quick Settings **Sync Clipboard**
   tile.
 - Bonjour/mDNS discovery of the Mac receiver through Android NSD.
-- No polling loop, foreground service, wakelock, cloud service, pairing, or
-  encryption.
+- Simple pairing through a shared token sent as `X-ZevClip-Token`.
+- No polling loop, foreground service, wakelock, cloud service, or encryption.
 
 The app uses Android platform APIs and `HttpURLConnection`. It has no runtime
 third-party dependencies.
@@ -59,8 +59,9 @@ From the ZevClip repository root:
 ./script/build_and_run.sh
 ```
 
-Confirm the Mac app shows **Running** and **Advertising** on port `9876`. If
-macOS asks whether to allow incoming network connections, allow them.
+Confirm the Mac app shows **Running** and **Advertising** on port `9876`. Copy
+the token shown in the Mac **Pairing** section. If macOS asks whether to allow
+incoming network connections, allow them.
 
 Both devices must be on the same Wi-Fi/LAN and normally need to be on the same
 subnet. Guest Wi-Fi client isolation can block both discovery and sending.
@@ -71,8 +72,10 @@ subnet. Guest Wi-Fi client isolation can block both discovery and sending.
 2. Tap **Discover Mac**.
 3. Confirm the discovery status shows `ZevClip Mac Receiver` and the resolved
    address and port.
-4. Enter test text under **Manual send** and tap **Send to Mac**.
-5. Paste on the Mac to verify the discovered endpoint works.
+4. Paste the Mac pairing token into **Pairing token** and tap
+   **Save Pairing Token**.
+5. Enter test text under **Manual send** and tap **Send to Mac**.
+6. Paste on the Mac to verify the discovered endpoint works.
 
 If multiple ZevClip receivers are found, the app reports the count and prefers
 the receiver named `ZevClip Mac Receiver`.
@@ -136,6 +139,11 @@ Manual IP entry remains available if Bonjour discovery is blocked. To find the
 Mac IP manually, open **System Settings > Wi-Fi > Details** on the Mac or run
 `ipconfig getifaddr en0`.
 
+If ZevClip reports HTTP `401`, the Android pairing token is missing or does not
+match the token currently shown on the Mac. Paste the Mac token again and tap
+**Save Pairing Token**. If you regenerate the Mac token, all Android installs
+must be updated.
+
 Manual Send remains available because Accessibility Service detection and
 Bonjour discovery are best-effort.
 
@@ -157,4 +165,6 @@ Bonjour discovery are best-effort.
 ## MVP security note
 
 The app allows cleartext HTTP traffic for local LAN testing. There is no
-authentication or encryption, so use it only on a trusted local network.
+encryption, so use it only on a trusted local network. Pairing prevents random
+LAN devices from writing to the Mac clipboard, but it does not hide clipboard
+contents from network observers.

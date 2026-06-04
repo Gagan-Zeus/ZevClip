@@ -8,6 +8,7 @@ object ZevClipPreferences {
     const val DEFAULT_PORT = "9876"
     const val KEY_IP_ADDRESS = "mac_ip_address"
     const val KEY_PORT = "port"
+    const val KEY_PAIRING_TOKEN = "pairing_token"
     const val KEY_LAST_AUTO_STATUS = "last_auto_status"
     const val KEY_LAST_TILE_STATUS = "last_tile_status"
     const val KEY_DISCOVERY_STATUS = "discovery_status"
@@ -44,6 +45,16 @@ object ZevClipPreferences {
         }
 
         return Endpoint(ipAddress, port)
+    }
+
+    fun pairingToken(context: Context): String {
+        return preferences(context).getString(KEY_PAIRING_TOKEN, "").orEmpty().trim()
+    }
+
+    fun savePairingToken(context: Context, token: String) {
+        preferences(context).edit()
+            .putString(KEY_PAIRING_TOKEN, token.trim())
+            .apply()
     }
 
     fun lastAutoStatus(context: Context): String {
@@ -127,6 +138,10 @@ object ZevClipPreferences {
             .putString(
                 KEY_PORT,
                 legacyPreferences.getString(KEY_PORT, DEFAULT_PORT).orEmpty()
+            )
+            .putString(
+                KEY_PAIRING_TOKEN,
+                legacyPreferences.getString(KEY_PAIRING_TOKEN, "").orEmpty()
             )
             .putBoolean(KEY_MIGRATION_COMPLETE, true)
             .apply()

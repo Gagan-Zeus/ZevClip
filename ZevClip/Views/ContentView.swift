@@ -52,6 +52,36 @@ struct ContentView: View {
             Divider()
 
             VStack(alignment: .leading, spacing: 8) {
+                Text("Pairing")
+                    .font(.headline)
+
+                Text("Enter this token in the Android app. Requests without this token are rejected.")
+                    .foregroundStyle(.secondary)
+
+                Text(receiver.pairingToken.isEmpty ? "Token unavailable" : receiver.pairingToken)
+                    .font(.system(.body, design: .monospaced))
+                    .textSelection(.enabled)
+                    .lineLimit(2)
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
+
+                HStack {
+                    Button("Regenerate Pairing Token") {
+                        receiver.regeneratePairingToken()
+                    }
+
+                    Spacer()
+
+                    Text(receiver.pairingStatus)
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                }
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
                 Text("Local Discovery")
                     .font(.headline)
 
@@ -103,6 +133,6 @@ struct ContentView: View {
             .frame(maxHeight: .infinity)
         }
         .padding(24)
-        .frame(minWidth: 500, minHeight: 500)
+        .frame(minWidth: 560, minHeight: 650)
     }
 }
