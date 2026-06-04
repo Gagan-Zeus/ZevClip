@@ -7,9 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		003C797EAA8C8B95F5BC210B /* LocalNetworkHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB39B975B9C136C551CFBBC4 /* LocalNetworkHost.swift */; };
 		3F129658B18A045EB75D744E /* PairingTokenKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = D349EA03D0A76DC6B676F25E /* PairingTokenKeychain.swift */; };
 		5B2A64EEB803EC30746CA86F /* ClipboardReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08BB497EA327D472BA901879 /* ClipboardReceiver.swift */; };
 		A4082A7C2B57560785213E49 /* MenuBarContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DDD7A2F7CB9F1C7199F16D5 /* MenuBarContentView.swift */; };
+		A801C940E295D9F6D3AE997A /* PairingQRCodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF4453CC0495AA8E55154E88 /* PairingQRCodeView.swift */; };
 		B5AAD53CA643D32F7FCA3E02 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F2EFD3F683F74CF002CD50F /* AppSettings.swift */; };
 		B8CA797C763F040EDE0356DE /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 320BFAD0195F6C551F287AC0 /* ContentView.swift */; };
 		C405F78AD025A73FDB6198B8 /* ZevClipApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AA610A696A5F3C375689D0B /* ZevClipApp.swift */; };
@@ -25,6 +27,8 @@
 		4F2EFD3F683F74CF002CD50F /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		5BAF94C62FB5C5E506492DFD /* ClipboardHTTPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardHTTPServer.swift; sourceTree = "<group>"; };
 		7AA610A696A5F3C375689D0B /* ZevClipApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZevClipApp.swift; sourceTree = "<group>"; };
+		BB39B975B9C136C551CFBBC4 /* LocalNetworkHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalNetworkHost.swift; sourceTree = "<group>"; };
+		BF4453CC0495AA8E55154E88 /* PairingQRCodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingQRCodeView.swift; sourceTree = "<group>"; };
 		D349EA03D0A76DC6B676F25E /* PairingTokenKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingTokenKeychain.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -34,6 +38,7 @@
 			children = (
 				320BFAD0195F6C551F287AC0 /* ContentView.swift */,
 				1DDD7A2F7CB9F1C7199F16D5 /* MenuBarContentView.swift */,
+				BF4453CC0495AA8E55154E88 /* PairingQRCodeView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -53,6 +58,7 @@
 				5A0371B9E8F1A7DF113C8B94 /* App */,
 				F02D8D283B2206D4FCADBA05 /* Services */,
 				66DE4E9CF14E575465868B29 /* Stores */,
+				EDBF2194EC3EFD010F57AC2C /* Support */,
 				0DDF932BE4104494C481018E /* Views */,
 			);
 			path = ZevClip;
@@ -81,6 +87,14 @@
 				21B01AEF6AD3FEB44682B65B /* ZevClip.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		EDBF2194EC3EFD010F57AC2C /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				BB39B975B9C136C551CFBBC4 /* LocalNetworkHost.swift */,
+			);
+			path = Support;
 			sourceTree = "<group>";
 		};
 		F02D8D283B2206D4FCADBA05 /* Services */ = {
@@ -151,7 +165,9 @@
 				F720DDC4973512A61918258B /* ClipboardHTTPServer.swift in Sources */,
 				5B2A64EEB803EC30746CA86F /* ClipboardReceiver.swift in Sources */,
 				B8CA797C763F040EDE0356DE /* ContentView.swift in Sources */,
+				003C797EAA8C8B95F5BC210B /* LocalNetworkHost.swift in Sources */,
 				A4082A7C2B57560785213E49 /* MenuBarContentView.swift in Sources */,
+				A801C940E295D9F6D3AE997A /* PairingQRCodeView.swift in Sources */,
 				3F129658B18A045EB75D744E /* PairingTokenKeychain.swift in Sources */,
 				C405F78AD025A73FDB6198B8 /* ZevClipApp.swift in Sources */,
 			);

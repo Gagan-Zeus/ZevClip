@@ -21,6 +21,9 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import java.util.Locale
 import kotlin.concurrent.thread
 
@@ -31,6 +34,7 @@ class MainActivity : Activity() {
     private lateinit var textInput: EditText
     private lateinit var sendButton: Button
     private lateinit var pullButton: Button
+    private lateinit var scanPairingQrButton: Button
     private lateinit var statusText: TextView
     private lateinit var discoverButton: Button
     private lateinit var discoveryStatusText: TextView
@@ -134,6 +138,19 @@ class MainActivity : Activity() {
             setPadding(0, dp(12), 0, dp(8))
         }
         content.addView(discoveryStatusText, matchWidth())
+        content.addView(divider(), dividerLayoutParams(topMargin = 12))
+
+        content.addView(sectionTitle(R.string.qr_pairing_title))
+        content.addView(
+            textView(getString(R.string.qr_pairing_instructions), 14f, Color.DKGRAY),
+            matchWidth()
+        )
+        scanPairingQrButton = Button(this).apply {
+            text = getString(R.string.scan_pairing_qr)
+            isAllCaps = false
+            setOnClickListener { scanPairingQr() }
+        }
+        content.addView(scanPairingQrButton, matchWidth(topMargin = 8))
         content.addView(divider(), dividerLayoutParams(topMargin = 12))
 
         content.addView(sectionTitle(R.string.pairing_title))
@@ -270,8 +287,8 @@ class MainActivity : Activity() {
         val portText = portInput.text.toString().trim()
         val text = textInput.text.toString()
 
-        if (!NetworkInputValidator.validateIPv4(ipAddress)) {
-            showFailure("Enter a valid IPv4 address, for example 192.168.1.10.")
+        if (!NetworkInputValidator.validateHost(ipAddress)) {
+            showFailure("Enter a valid Mac IP or host, for example 192.168.1.10.")
             ipAddressInput.requestFocus()
             return
         }
@@ -324,8 +341,8 @@ class MainActivity : Activity() {
         val ipAddress = ipAddressInput.text.toString().trim()
         val portText = portInput.text.toString().trim()
 
-        if (!NetworkInputValidator.validateIPv4(ipAddress)) {
-            showFailure("Enter a valid IPv4 address, for example 192.168.1.10.")
+        if (!NetworkInputValidator.validateHost(ipAddress)) {
+            showFailure("Enter a valid Mac IP or host, for example 192.168.1.10.")
             ipAddressInput.requestFocus()
             return
         }
@@ -378,6 +395,57 @@ class MainActivity : Activity() {
         } catch (error: SecurityException) {
             showFailure("Android blocked the clipboard update: ${error.message ?: "permission denied"}")
         }
+    }
+
+    private fun scanPairingQr() {
+        scanPairingQrButton.isEnabled = false
+        statusText.setTextColor(Color.DKGRAY)
+        statusText.text = getString(R.string.qr_scan_starting)
+
+        val options = GmsBarcodeScannerOptions.Builder()
+            .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
+            .enableAutoZoom()
+            .build()
+
+        GmsBarcodeScanning.getClient(this, options)
+            .startScan()
+            .addOnSuccessListener { barcode ->
+                scanPairingQrButton.isEnabled = true
+                val rawValue = barcode.rawValue
+                if (rawValue.isNullOrBlank()) {
+                    showFailure(getString(R.string.qr_scan_empty))
+                } else {
+                    savePairingQrPayload(rawValue)
+                }
+            }
+            .addOnCanceledListener {
+                scanPairingQrButton.isEnabled = true
+                showFailure(getString(R.string.qr_scan_cancelled))
+            }
+            .addOnFailureListener { error ->
+                scanPairingQrButton.isEnabled = true
+                showFailure(getString(R.string.qr_scan_failed, error.message ?: "scanner failed"))
+            }
+    }
+
+    private fun savePairingQrPayload(rawValue: String) {
+        PairingQrPayload.parse(rawValue)
+            .onSuccess { payload ->
+                ipAddressInput.setText(payload.host)
+                portInput.setText(String.format(Locale.US, "%d", payload.port))
+                pairingTokenInput.setText(payload.token)
+                ZevClipPreferences.saveEndpoint(this, payload.host, payload.port.toString())
+                ZevClipPreferences.savePairingToken(this, payload.token)
+                ZevClipPreferences.setDiscoveryStatus(
+                    this,
+                    getString(R.string.qr_pairing_saved_discovery_status, payload.name, payload.host, payload.port)
+                )
+                refreshSyncStatuses()
+                showSuccess(getString(R.string.qr_pairing_saved, payload.name, payload.host, payload.port))
+            }
+            .onFailure { error ->
+                showFailure(error.message ?: getString(R.string.qr_scan_invalid))
+            }
     }
 
     private fun savePairingTokenFromUi() {

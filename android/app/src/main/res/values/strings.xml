@@ -7,6 +7,16 @@
     <string name="discovery_instructions">Start the Mac receiver, then discover it automatically on the same Wi-Fi/LAN. Manual IP entry remains available below.</string>
     <string name="discover_mac">Discover Mac</string>
     <string name="discovery_status">Discovery: %1$s</string>
+    <string name="qr_pairing_title">QR pairing</string>
+    <string name="qr_pairing_instructions">Scan the QR code shown in ZevClip Settings on the Mac to save the host, port, and pairing token automatically.</string>
+    <string name="scan_pairing_qr">Scan Pairing QR</string>
+    <string name="qr_scan_starting">Opening QR scanner…</string>
+    <string name="qr_scan_empty">QR code did not contain text.</string>
+    <string name="qr_scan_cancelled">QR scan cancelled.</string>
+    <string name="qr_scan_failed">QR scan failed: %1$s</string>
+    <string name="qr_scan_invalid">QR code is not valid ZevClip pairing data.</string>
+    <string name="qr_pairing_saved">Saved %1$s at %2$s:%3$d.</string>
+    <string name="qr_pairing_saved_discovery_status">Paired from QR: %1$s at %2$s:%3$d.</string>
     <string name="pairing_title">Pairing</string>
     <string name="pairing_instructions">Enter the pairing token shown on the Mac. ZevClip stores it in private app preferences for this MVP and sends it with every request.</string>
     <string name="pairing_token_label">Pairing token</string>
@@ -32,8 +42,8 @@
     <string name="tile_add_result_not_added">Tile was not added. Swipe down twice, tap edit/pencil, and add Sync Clipboard.</string>
     <string name="tile_add_result_open_instructions">Swipe down twice, tap edit/pencil, and add Sync Clipboard.</string>
     <string name="manual_send_title">Manual send</string>
-    <string name="mac_ip_label">Mac IP address</string>
-    <string name="mac_ip_hint">192.168.1.10</string>
+    <string name="mac_ip_label">Mac IP address or host</string>
+    <string name="mac_ip_hint">192.168.1.10 or mac.local</string>
     <string name="port_label">Port</string>
     <string name="pull_mac_clipboard_title">Mac clipboard pull</string>
     <string name="pull_mac_clipboard_instructions">Focused fallback for Mac to Android: fetch the current Mac clipboard and copy it into Android.</string>

@@ -40,7 +40,7 @@ object ZevClipPreferences {
             preferences.getString(KEY_PORT, DEFAULT_PORT).orEmpty().trim()
         )
 
-        if (!NetworkInputValidator.validateIPv4(ipAddress) || port == null) {
+        if (!NetworkInputValidator.validateHost(ipAddress) || port == null) {
             return null
         }
 

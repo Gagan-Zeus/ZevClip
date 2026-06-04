@@ -36,8 +36,9 @@ shows whether Bonjour is advertising, along with the service name, type, and
 port.
 
 The **Pairing** section shows the current token. It is generated randomly and
-stored in macOS Keychain. Use **Regenerate Pairing Token** if you need to
-invalidate previously paired Android installs.
+stored in macOS Keychain. It also shows a QR code that Android can scan to save
+the Mac host, port, and pairing token automatically. Use **Regenerate Pairing
+Token** if you need to invalidate previously paired Android installs.
 
 Launch at Login is managed with the native macOS `SMAppService` API and the
 preference is persisted in app defaults. The pairing token remains persisted in
@@ -51,11 +52,18 @@ on the same subnet for Bonjour discovery.
 1. Start the Mac receiver and confirm it shows **Running** and
    **Advertising**.
 2. Open ZevClip on Android.
-3. Tap **Discover Mac**.
-4. Copy the Mac pairing token into Android and tap **Save Pairing Token**.
+3. Tap **Scan Pairing QR** and scan the QR code in the Mac settings window.
+4. Confirm Android reports the saved Mac host, port, and token.
 5. Send a manual test message, use one of the Android-to-Mac clipboard sync
    actions, or tap **Pull Mac Clipboard** to copy the Mac clipboard onto
    Android.
+
+Manual setup still works: tap **Discover Mac** or type the Mac IP/host, then
+copy the Mac pairing token into Android and tap **Save Pairing Token**.
+
+The Android QR scanner uses Google Play services Code Scanner. It does not
+require ZevClip to request camera permission; Google Play services provides the
+scanner UI and returns only the QR text.
 
 ## Sync flows
 

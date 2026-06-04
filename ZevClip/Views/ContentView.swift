@@ -81,6 +81,8 @@ struct ContentView: View {
                 Text("Enter this token in the Android app. Requests without this token are rejected.")
                     .foregroundStyle(.secondary)
 
+                PairingQRCodeView(token: receiver.pairingToken)
+
                 Text(receiver.pairingToken.isEmpty ? "Token unavailable" : receiver.pairingToken)
                     .font(.system(.body, design: .monospaced))
                     .textSelection(.enabled)

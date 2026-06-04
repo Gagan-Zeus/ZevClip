@@ -10,12 +10,14 @@ It includes:
 - User-invoked clipboard sending through a Quick Settings **Sync Clipboard**
   tile.
 - Bonjour/mDNS discovery of the Mac receiver through Android NSD.
+- QR pairing from the Mac settings window.
 - Simple pairing through a shared token sent as `X-ZevClip-Token`.
 - Manual Mac-to-Android clipboard pull from the focused app UI.
 - No polling loop, foreground service, wakelock, cloud service, or encryption.
 
 The app uses Android platform APIs and `HttpURLConnection`. It has no runtime
-third-party dependencies.
+third-party networking dependencies. QR scanning uses Google Play services Code
+Scanner, which provides the scanner UI without a ZevClip camera permission.
 
 The MVP intentionally targets Android 16 / API 36. When ZevClip later targets
 Android 17 / API 37, it must add the new local-network runtime permission:
@@ -70,13 +72,20 @@ subnet. Guest Wi-Fi client isolation can block both discovery and sending.
 ### 3. Discover the Mac from Android
 
 1. Open ZevClip on the Android phone.
-2. Tap **Discover Mac**.
-3. Confirm the discovery status shows `ZevClip Mac Receiver` and the resolved
-   address and port.
-4. Paste the Mac pairing token into **Pairing token** and tap
-   **Save Pairing Token**.
+2. Tap **Scan Pairing QR**.
+3. Scan the QR code shown in the Mac ZevClip settings window.
+4. Confirm the app reports that it saved `ZevClip Mac Receiver`, the Mac host,
+   port, and token.
 5. Enter test text under **Manual send** and tap **Send to Mac**.
-6. Paste on the Mac to verify the discovered endpoint works.
+6. Paste on the Mac to verify the paired endpoint works.
+
+Manual discovery remains available:
+
+1. Tap **Discover Mac**.
+2. Confirm the discovery status shows `ZevClip Mac Receiver` and the resolved
+   address and port.
+3. Paste the Mac pairing token into **Pairing token** and tap
+   **Save Pairing Token**.
 
 If multiple ZevClip receivers are found, the app reports the count and prefers
 the receiver named `ZevClip Mac Receiver`.
