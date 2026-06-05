@@ -64,12 +64,12 @@ class ClipboardAccessibilityService : AccessibilityService() {
         rememberSelectedText(event)
 
         val candidates = eventCandidates(event)
-        val matchingCandidate = candidates.firstOrNull(::looksLikeCopyAction) ?: return
+        val matchingCandidate = candidates.firstOrNull(::looksLikeClipboardExportAction) ?: return
         val signature = matchingCandidate
         val now = SystemClock.elapsedRealtime()
 
         if (signature == lastCandidateSignature && now - lastCandidateAt < DEBOUNCE_MS) {
-            Log.d(TAG, "Ignoring duplicate copy event: $matchingCandidate")
+            Log.d(TAG, "Ignoring duplicate clipboard export event: $matchingCandidate")
             return
         }
 
@@ -78,7 +78,7 @@ class ClipboardAccessibilityService : AccessibilityService() {
 
         Log.i(
             TAG,
-            "Likely copy event detected: ${AccessibilityEvent.eventTypeToString(event.eventType)} " +
+            "Likely clipboard export event detected: ${AccessibilityEvent.eventTypeToString(event.eventType)} " +
                 "package=${event.packageName} candidate=$matchingCandidate " +
                 "uiVisible=${ZevClipApplication.isUiVisible(application)}"
         )
@@ -150,12 +150,15 @@ class ClipboardAccessibilityService : AccessibilityService() {
             .distinct()
     }
 
-    private fun looksLikeCopyAction(candidate: String): Boolean {
+    private fun looksLikeClipboardExportAction(candidate: String): Boolean {
         return candidate == "copy" ||
             candidate == "copied" ||
+            candidate == "cut" ||
             candidate.startsWith("copy ") ||
             candidate.startsWith("copied ") ||
-            candidate.contains("copied to clipboard")
+            candidate.startsWith("cut ") ||
+            candidate.contains("copied to clipboard") ||
+            candidate.contains("cut to clipboard")
     }
 
     private fun rememberSelectedText(event: AccessibilityEvent) {

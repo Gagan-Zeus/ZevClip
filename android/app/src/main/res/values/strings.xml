@@ -53,7 +53,7 @@
     <string name="last_auto_send_status">Last auto-send: %1$s</string>
     <string name="auto_send_waiting_for_endpoint">Waiting for a valid Mac IP and port.</string>
     <string name="quick_settings_title">Quick Settings sync</string>
-    <string name="quick_settings_instructions">Reliable fallback: copy text, swipe down twice, then tap Sync Clipboard. If the tile is not visible, tap edit/pencil and add it.</string>
+    <string name="quick_settings_instructions">Reliable fallback: copy or cut text, swipe down twice, then tap Sync Clipboard. If the tile is not visible, tap edit/pencil and add it.</string>
     <string name="add_quick_settings_tile">Add Sync Clipboard Tile</string>
     <string name="last_tile_status">Last tile sync: %1$s</string>
     <string name="sync_clipboard_tile_label">Sync Clipboard</string>
@@ -71,5 +71,5 @@
     <string name="send">Send to Mac</string>
     <string name="ready">Ready.</string>
     <string name="sending_to_endpoint">Sending to %1$s…</string>
-    <string name="accessibility_service_description">Best-effort detection of copy actions so ZevClip can send copied text to your Mac.</string>
+    <string name="accessibility_service_description">Best-effort detection of copy and cut actions so ZevClip can send clipboard text to your Mac.</string>
 </resources>
