@@ -16,6 +16,7 @@
     <string name="notification_text_stopped">Clipboard sync is off.</string>
     <string name="notification_mirror_compact_status">Notification mirroring: %1$s\n%2$s</string>
     <string name="open_notification_access_settings">Open Notification Access Settings</string>
+    <string name="call_mirror_compact_status">Call mirroring: %1$s\n%2$s</string>
     <string name="on">On</string>
     <string name="off">Off</string>
     <string name="needs_setup">Needs setup</string>

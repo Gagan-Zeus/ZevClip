@@ -16,7 +16,8 @@ final class ClipboardHTTPServer {
         onAdvertisingChanged: @escaping (Bool) -> Void,
         onFailure: @escaping (String) -> Void,
         onText: @escaping (String) -> Void,
-        onAndroidNotification: @escaping (Data) -> Void
+        onAndroidNotification: @escaping (Data) -> Void,
+        onAndroidCall: @escaping (Data) -> Void
     ) {
         queue.async { [weak self] in
             self?.startOnQueue(
@@ -29,7 +30,8 @@ final class ClipboardHTTPServer {
                 onAdvertisingChanged: onAdvertisingChanged,
                 onFailure: onFailure,
                 onText: onText,
-                onAndroidNotification: onAndroidNotification
+                onAndroidNotification: onAndroidNotification,
+                onAndroidCall: onAndroidCall
             )
         }
     }
@@ -57,7 +59,8 @@ final class ClipboardHTTPServer {
         onAdvertisingChanged: @escaping (Bool) -> Void,
         onFailure: @escaping (String) -> Void,
         onText: @escaping (String) -> Void,
-        onAndroidNotification: @escaping (Data) -> Void
+        onAndroidNotification: @escaping (Data) -> Void,
+        onAndroidCall: @escaping (Data) -> Void
     ) {
         guard listener == nil else { return }
         guard let networkPort = NWEndpoint.Port(rawValue: port) else {
@@ -116,7 +119,8 @@ final class ClipboardHTTPServer {
                     connection,
                     tokenProvider: tokenProvider,
                     onText: onText,
-                    onAndroidNotification: onAndroidNotification
+                    onAndroidNotification: onAndroidNotification,
+                    onAndroidCall: onAndroidCall
                 )
             }
 
@@ -132,7 +136,8 @@ final class ClipboardHTTPServer {
         _ connection: NWConnection,
         tokenProvider: @escaping () -> String,
         onText: @escaping (String) -> Void,
-        onAndroidNotification: @escaping (Data) -> Void
+        onAndroidNotification: @escaping (Data) -> Void,
+        onAndroidCall: @escaping (Data) -> Void
     ) {
         let id = ObjectIdentifier(connection)
         let httpConnection = HTTPConnection(
@@ -141,6 +146,7 @@ final class ClipboardHTTPServer {
             tokenProvider: tokenProvider,
             onText: onText,
             onAndroidNotification: onAndroidNotification,
+            onAndroidCall: onAndroidCall,
             onClose: { [weak self] in
                 self?.connections[id] = nil
             }
@@ -168,6 +174,7 @@ private final class HTTPConnection {
     private let tokenProvider: () -> String
     private let onText: (String) -> Void
     private let onAndroidNotification: (Data) -> Void
+    private let onAndroidCall: (Data) -> Void
     private let onClose: () -> Void
 
     private var buffer = Data()
@@ -183,6 +190,7 @@ private final class HTTPConnection {
         tokenProvider: @escaping () -> String,
         onText: @escaping (String) -> Void,
         onAndroidNotification: @escaping (Data) -> Void,
+        onAndroidCall: @escaping (Data) -> Void,
         onClose: @escaping () -> Void
     ) {
         self.connection = connection
@@ -190,6 +198,7 @@ private final class HTTPConnection {
         self.tokenProvider = tokenProvider
         self.onText = onText
         self.onAndroidNotification = onAndroidNotification
+        self.onAndroidCall = onAndroidCall
         self.onClose = onClose
     }
 
@@ -280,6 +289,10 @@ private final class HTTPConnection {
             onAndroidNotification(bodyData)
             respond(status: "200 OK", body: "Notification mirrored.")
 
+        case "/android-call":
+            onAndroidCall(bodyData)
+            respond(status: "200 OK", body: "Android call mirrored.")
+
         default:
             respond(status: "404 Not Found", body: "Unknown path.")
         }
@@ -321,8 +334,8 @@ private final class HTTPConnection {
         }
 
         let path = String(requestParts[1])
-        guard path == "/clipboard" || path == "/android-notification" else {
-            respond(status: "404 Not Found", body: "Use /clipboard or /android-notification.")
+        guard path == "/clipboard" || path == "/android-notification" || path == "/android-call" else {
+            respond(status: "404 Not Found", body: "Use /clipboard, /android-notification, or /android-call.")
             return true
         }
 

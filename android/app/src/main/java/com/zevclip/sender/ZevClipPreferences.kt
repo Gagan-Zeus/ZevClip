@@ -26,6 +26,7 @@ object ZevClipPreferences {
     const val KEY_CLIPBOARD_SYNC_ENABLED = "clipboard_sync_enabled"
     const val KEY_NOTIFICATION_MIRROR_CONNECTED = "notification_mirror_connected"
     const val KEY_NOTIFICATION_MIRROR_STATUS = "notification_mirror_status"
+    const val KEY_CALL_MIRROR_STATUS = "call_mirror_status"
 
     private const val KEY_ANDROID_DEVICE_ID = "android_device_id"
     private const val KEY_LAST_TILE_SUBTITLE = "last_tile_subtitle"
@@ -216,6 +217,19 @@ object ZevClipPreferences {
     fun setLastNotificationMirrorStatus(context: Context, status: String) {
         preferences(context).edit()
             .putString(KEY_NOTIFICATION_MIRROR_STATUS, status)
+            .apply()
+    }
+
+    fun callMirrorStatus(context: Context): String {
+        return preferences(context).getString(
+            KEY_CALL_MIRROR_STATUS,
+            "Call mirroring is waiting for Phone permission."
+        ).orEmpty()
+    }
+
+    fun setCallMirrorStatus(context: Context, status: String) {
+        preferences(context).edit()
+            .putString(KEY_CALL_MIRROR_STATUS, status)
             .apply()
     }
 

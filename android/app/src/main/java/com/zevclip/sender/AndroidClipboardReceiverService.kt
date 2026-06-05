@@ -93,6 +93,9 @@ class AndroidClipboardReceiverService : Service() {
             },
             onNotificationAction = { notificationKey ->
                 AndroidNotificationMirrorService.cancelMirroredNotification(notificationKey)
+            },
+            onCallAction = { action, callId ->
+                AndroidCallMirrorService.performCallAction(action, callId)
             }
         )
 

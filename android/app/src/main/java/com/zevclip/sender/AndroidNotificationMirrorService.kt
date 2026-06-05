@@ -77,6 +77,9 @@ class AndroidNotificationMirrorService : NotificationListenerService() {
         }
 
         val notification = sbn.notification ?: return null
+        if (notification.category == Notification.CATEGORY_CALL) {
+            return null
+        }
         if (notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) {
             return null
         }

@@ -37,9 +37,12 @@ final class ClipboardReceiver: ObservableObject {
     @Published private(set) var lastReceivedAt: Date?
     @Published private(set) var lastMirroredNotification: AndroidMirroredNotification?
     @Published private(set) var lastMirroredNotificationAt: Date?
+    @Published private(set) var lastMirroredCall: AndroidMirroredCall?
+    @Published private(set) var lastMirroredCallAt: Date?
 
     var onPasteboardWrite: ((String, Int) -> Void)?
     var onAndroidNotification: ((AndroidMirroredNotification) -> Void)?
+    var onAndroidCall: ((AndroidMirroredCall) -> Void)?
 
     private let server = ClipboardHTTPServer()
     private let tokenProvider = PairingTokenProvider(token: "")
@@ -99,6 +102,11 @@ final class ClipboardReceiver: ObservableObject {
             onAndroidNotification: { [weak self] data in
                 Task { @MainActor in
                     self?.receiveAndroidNotification(data)
+                }
+            },
+            onAndroidCall: { [weak self] data in
+                Task { @MainActor in
+                    self?.receiveAndroidCall(data)
                 }
             }
         )
@@ -174,6 +182,20 @@ final class ClipboardReceiver: ObservableObject {
             onAndroidNotification?(notification)
         } catch {
             detailMessage = "Received Android notification, but could not decode it."
+        }
+    }
+
+    private func receiveAndroidCall(_ data: Data) {
+        do {
+            let call = try JSONDecoder().decode(AndroidMirroredCall.self, from: data)
+            lastMirroredCall = call
+            lastMirroredCallAt = Date()
+            detailMessage = call.isRinging
+                ? "Mirrored incoming Android call."
+                : "Updated mirrored Android call: \(call.event)."
+            onAndroidCall?(call)
+        } catch {
+            detailMessage = "Received Android call event, but could not decode it."
         }
     }
 }

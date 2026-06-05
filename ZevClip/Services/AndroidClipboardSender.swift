@@ -85,6 +85,41 @@ final class AndroidClipboardSender: ObservableObject {
         }
     }
 
+    func sendAndroidCallAction(action: String, callId: String) {
+        let trimmedAction = action.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedCallId = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedAction.isEmpty, !trimmedCallId.isEmpty else { return }
+        guard let endpoint = resolvedEndpoint else {
+            discoverAndroidReceiver()
+            return
+        }
+
+        let token = tokenProvider().trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !token.isEmpty else { return }
+
+        Task { [weak self] in
+            let result = await AndroidClipboardHTTPClient.sendCallAction(
+                action: trimmedAction,
+                callId: trimmedCallId,
+                on: endpoint,
+                token: token
+            )
+
+            await MainActor.run {
+                switch result {
+                case .success:
+                    self?.status = "Sent Android call action: \(trimmedAction)."
+                case .failure(let message, let isRetryable):
+                    self?.status = message
+                    if isRetryable {
+                        self?.resolvedEndpoint = nil
+                        self?.discoverAndroidReceiver()
+                    }
+                }
+            }
+        }
+    }
+
     private func sendPendingChangeIfPossible() {
         guard sendTask == nil else { return }
         guard let change = pendingChange else { return }
@@ -383,6 +418,58 @@ private enum AndroidClipboardHTTPClient {
         }
     }
 
+    static func sendCallAction(
+        action: String,
+        callId: String,
+        on endpoint: AndroidReceiverEndpoint,
+        token: String
+    ) async -> Result {
+        guard let url = callActionURL(for: endpoint) else {
+            return .failure("Android call action URL is invalid.", isRetryable: false)
+        }
+
+        let body = [
+            "action": action,
+            "callId": callId
+        ]
+
+        guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else {
+            return .failure("Could not encode Android call action.", isRetryable: false)
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 5
+        request.setValue(token, forHTTPHeaderField: "X-ZevClip-Token")
+        request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
+        request.httpBody = bodyData
+
+        do {
+            let (responseBody, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                return .failure("Android call action returned an invalid response.", isRetryable: true)
+            }
+
+            guard httpResponse.statusCode == 200 else {
+                let bodyText = String(data: responseBody, encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let detail = bodyText?.isEmpty == false ? " \(bodyText!)" : ""
+                return .failure(
+                    "Android call action failed (\(httpResponse.statusCode)).\(detail)",
+                    isRetryable: isRetryableStatusCode(httpResponse.statusCode)
+                )
+            }
+
+            return .success(confirmedDeviceId: httpResponse.value(forHTTPHeaderField: Self.androidDeviceIDHeader))
+        } catch {
+            return .failure(
+                "Could not send Android call action: \(error.localizedDescription)",
+                isRetryable: true
+            )
+        }
+    }
+
+
     private static func clipboardURL(for endpoint: AndroidReceiverEndpoint) -> URL? {
         url(for: endpoint, path: "/clipboard")
     }
@@ -393,6 +480,10 @@ private enum AndroidClipboardHTTPClient {
 
     private static func notificationActionURL(for endpoint: AndroidReceiverEndpoint) -> URL? {
         url(for: endpoint, path: "/notification-action")
+    }
+
+    private static func callActionURL(for endpoint: AndroidReceiverEndpoint) -> URL? {
+        url(for: endpoint, path: "/call-action")
     }
 
     private static func url(for endpoint: AndroidReceiverEndpoint, path: String) -> URL? {

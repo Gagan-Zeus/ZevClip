@@ -53,6 +53,7 @@ class MainActivity : Activity() {
     private lateinit var stopClipboardSyncButton: Button
     private lateinit var accessibilityStatusText: TextView
     private lateinit var notificationMirrorStatusText: TextView
+    private lateinit var callMirrorStatusText: TextView
     private lateinit var lastAutoStatusText: TextView
     private lateinit var discoveryManager: MacDiscoveryManager
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -74,7 +75,8 @@ class MainActivity : Activity() {
             key == ZevClipPreferences.KEY_ANDROID_RECEIVER_LAST_RECEIVED_STATUS ||
             key == ZevClipPreferences.KEY_CLIPBOARD_SYNC_ENABLED ||
             key == ZevClipPreferences.KEY_NOTIFICATION_MIRROR_CONNECTED ||
-            key == ZevClipPreferences.KEY_NOTIFICATION_MIRROR_STATUS
+            key == ZevClipPreferences.KEY_NOTIFICATION_MIRROR_STATUS ||
+            key == ZevClipPreferences.KEY_CALL_MIRROR_STATUS
         ) {
             runOnUiThread { refreshSyncStatuses() }
         }
@@ -112,7 +114,9 @@ class MainActivity : Activity() {
         super.onResume()
         AccessibilityServiceStatus.logCurrentState(this, "MainActivity.onResume")
         if (ZevClipPreferences.isClipboardSyncEnabled(this)) {
+            requestPhoneCallPermissionsIfNeeded()
             AndroidClipboardReceiverService.start(this)
+            AndroidCallMirrorService.start(this)
         }
         refreshSyncStatuses()
         scheduleAccessibilityRechecks()
@@ -126,6 +130,11 @@ class MainActivity : Activity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQUEST_POST_NOTIFICATIONS) {
             ZevClipStatusNotification.update(this)
+        } else if (requestCode == REQUEST_PHONE_CALLS) {
+            if (ZevClipPreferences.isClipboardSyncEnabled(this)) {
+                AndroidCallMirrorService.start(this)
+            }
+            refreshSyncStatuses()
         }
     }
 
@@ -227,6 +236,11 @@ class MainActivity : Activity() {
                 startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
             }
         }, matchWidth(topMargin = 8))
+
+        callMirrorStatusText = textView("", 14f, Color.DKGRAY).apply {
+            setPadding(0, dp(12), 0, 0)
+        }
+        content.addView(callMirrorStatusText, matchWidth())
 
         content.addView(divider(), dividerLayoutParams(topMargin = 12))
 
@@ -369,6 +383,8 @@ class MainActivity : Activity() {
         saveEndpointAndTokenFromUi()
         ZevClipPreferences.setClipboardSyncEnabled(this, true)
         AndroidClipboardReceiverService.start(this)
+        requestPhoneCallPermissionsIfNeeded()
+        AndroidCallMirrorService.start(this)
         discoveryManager.discover()
 
         val accessibilityState = AccessibilityServiceStatus.currentState(this)
@@ -389,6 +405,7 @@ class MainActivity : Activity() {
     private fun stopClipboardSync() {
         ZevClipPreferences.setClipboardSyncEnabled(this, false)
         AndroidClipboardReceiverService.stop(this)
+        AndroidCallMirrorService.stop(this)
         ZevClipPreferences.setLastAutoStatus(this, getString(R.string.sync_stopped))
         showSuccess(getString(R.string.sync_stopped))
         refreshSyncStatuses()
@@ -554,6 +571,17 @@ class MainActivity : Activity() {
             ZevClipPreferences.notificationMirrorStatus(this)
         )
 
+        val callPermissionsGranted = hasPhoneCallPermissions()
+        callMirrorStatusText.setTextColor(
+            if (callPermissionsGranted) Color.rgb(24, 120, 54) else Color.rgb(180, 92, 0)
+        )
+        callMirrorStatusText.text = getString(
+            R.string.call_mirror_compact_status,
+            if (callPermissionsGranted) getString(R.string.accessibility_permission_enabled)
+            else getString(R.string.accessibility_permission_disabled),
+            ZevClipPreferences.callMirrorStatus(this)
+        )
+
         val lastAutoStatus = if (endpoint == null) {
             getString(R.string.auto_send_waiting_for_endpoint)
         } else {
@@ -592,6 +620,30 @@ class MainActivity : Activity() {
                 REQUEST_POST_NOTIFICATIONS
             )
         }
+    }
+
+    private fun requestPhoneCallPermissionsIfNeeded() {
+        val missingPermissions = phoneCallPermissions().filter {
+            checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (missingPermissions.isNotEmpty()) {
+            requestPermissions(missingPermissions.toTypedArray(), REQUEST_PHONE_CALLS)
+        }
+    }
+
+    private fun hasPhoneCallPermissions(): Boolean {
+        return phoneCallPermissions().all {
+            checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    private fun phoneCallPermissions(): List<String> {
+        return listOf(
+            Manifest.permission.READ_PHONE_STATE,
+            Manifest.permission.ANSWER_PHONE_CALLS,
+            Manifest.permission.READ_CALL_LOG,
+            Manifest.permission.READ_CONTACTS
+        )
     }
 
     private fun refreshAndroidReceiverStatus() {
@@ -884,6 +936,7 @@ class MainActivity : Activity() {
 
     private companion object {
         const val REQUEST_POST_NOTIFICATIONS = 2001
+        const val REQUEST_PHONE_CALLS = 2002
     }
 
 }
