@@ -287,6 +287,7 @@ private final class CallControlPanelController: NSObject {
     private let acceptButton = NSButton(title: "Accept", target: nil, action: nil)
     private let rejectButton = NSButton(title: "Reject", target: nil, action: nil)
     private let silenceButton = NSButton(title: "Silence", target: nil, action: nil)
+    private let buttonSpacer = NSView()
     private let onAction: (String, String, @escaping (Bool, String) -> Void) -> Void
     private var activeSince: Date?
     private var timer: Timer?
@@ -299,7 +300,7 @@ private final class CallControlPanelController: NSObject {
         self.onAction = onAction
 
         panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 336, height: 126),
+            contentRect: NSRect(x: 0, y: 0, width: 336, height: 138),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -375,6 +376,7 @@ private final class CallControlPanelController: NSObject {
         bodyLabel.lineBreakMode = .byTruncatingTail
         statusLabel.font = .systemFont(ofSize: 11)
         statusLabel.textColor = NSColor.white.withAlphaComponent(0.64)
+        buttonSpacer.translatesAutoresizingMaskIntoConstraints = false
 
         let buttonStack = NSStackView()
         buttonStack.orientation = .horizontal
@@ -390,7 +392,7 @@ private final class CallControlPanelController: NSObject {
         buttonStack.addArrangedSubview(rejectButton)
         buttonStack.addArrangedSubview(silenceButton)
 
-        [titleLabel, bodyLabel, statusLabel, buttonStack].forEach {
+        [titleLabel, bodyLabel, statusLabel, buttonSpacer, buttonStack].forEach {
             stack.addArrangedSubview($0)
         }
 
@@ -401,7 +403,8 @@ private final class CallControlPanelController: NSObject {
             stack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 14),
             stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -14),
             titleLabel.widthAnchor.constraint(equalTo: stack.widthAnchor),
-            bodyLabel.widthAnchor.constraint(equalTo: stack.widthAnchor)
+            bodyLabel.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            buttonSpacer.heightAnchor.constraint(equalToConstant: 6)
         ])
     }
 
