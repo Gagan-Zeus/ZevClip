@@ -16,6 +16,7 @@
 		B5AAD53CA643D32F7FCA3E02 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F2EFD3F683F74CF002CD50F /* AppSettings.swift */; };
 		B8CA797C763F040EDE0356DE /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 320BFAD0195F6C551F287AC0 /* ContentView.swift */; };
 		C405F78AD025A73FDB6198B8 /* ZevClipApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AA610A696A5F3C375689D0B /* ZevClipApp.swift */; };
+		D182329AA5F7CA783E6C62A1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D182329AA5F7CA783E6C62A0 /* Assets.xcassets */; };
 		F720DDC4973512A61918258B /* ClipboardHTTPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BAF94C62FB5C5E506492DFD /* ClipboardHTTPServer.swift */; };
 /* End PBXBuildFile section */
 
@@ -32,6 +33,7 @@
 		BB39B975B9C136C551CFBBC4 /* LocalNetworkHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalNetworkHost.swift; sourceTree = "<group>"; };
 		BF4453CC0495AA8E55154E88 /* PairingQRCodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingQRCodeView.swift; sourceTree = "<group>"; };
 		D349EA03D0A76DC6B676F25E /* PairingTokenKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingTokenKeychain.swift; sourceTree = "<group>"; };
+		D182329AA5F7CA783E6C62A0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -57,6 +59,7 @@
 			isa = PBXGroup;
 			children = (
 				4AFF2250F5F626D53C0BE6CF /* Info.plist */,
+				D182329AA5F7CA783E6C62A0 /* Assets.xcassets */,
 				5A0371B9E8F1A7DF113C8B94 /* App */,
 				F02D8D283B2206D4FCADBA05 /* Services */,
 				66DE4E9CF14E575465868B29 /* Stores */,
@@ -117,6 +120,7 @@
 			buildConfigurationList = 13C51D7459FB004BED71B5CE /* Build configuration list for PBXNativeTarget "ZevClip" */;
 			buildPhases = (
 				DFC8DC62D61BABF6AAC1F5F7 /* Sources */,
+				D182329AA5F7CA783E6C62A2 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -158,6 +162,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D182329AA5F7CA783E6C62A2 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D182329AA5F7CA783E6C62A1 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		DFC8DC62D61BABF6AAC1F5F7 /* Sources */ = {

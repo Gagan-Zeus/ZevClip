@@ -11,7 +11,7 @@ struct ZevClipApp: App {
         MenuBarExtra {
             MenuBarContentView(receiver: receiver, appSettings: appSettings)
         } label: {
-            Image(systemName: menuBarSystemImage)
+            Image("MenuBarIcon")
         }
         .menuBarExtraStyle(.menu)
 
@@ -21,16 +21,4 @@ struct ZevClipApp: App {
         .defaultSize(width: 560, height: 720)
     }
 
-    private var menuBarSystemImage: String {
-        switch receiver.status {
-        case .running:
-            return "link.circle"
-        case .starting:
-            return "clock.circle"
-        case .stopped:
-            return "pause.circle"
-        case .failed:
-            return "exclamationmark.triangle"
-        }
-    }
 }
