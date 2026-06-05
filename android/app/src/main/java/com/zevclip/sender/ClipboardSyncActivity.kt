@@ -118,6 +118,6 @@ class ClipboardSyncActivity : Activity() {
     }
 
     private companion object {
-        const val CLIPBOARD_READ_DELAY_MS = 250L
+        private const val CLIPBOARD_READ_DELAY_MS = 250L
     }
 }
