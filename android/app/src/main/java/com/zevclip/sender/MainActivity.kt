@@ -1,11 +1,13 @@
 package com.zevclip.sender
 
+import android.Manifest
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.app.StatusBarManager
 import android.content.ComponentName
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.drawable.Icon
 import android.net.Uri
@@ -78,6 +80,7 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(createContentView())
+        requestNotificationPermissionIfNeeded()
         discoveryManager = MacDiscoveryManager(
             context = this,
             onStatusChanged = { status, isDiscovering ->
@@ -110,6 +113,17 @@ class MainActivity : Activity() {
         }
         refreshSyncStatuses()
         scheduleAccessibilityRechecks()
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_POST_NOTIFICATIONS) {
+            ZevClipStatusNotification.update(this)
+        }
     }
 
     override fun onPause() {
@@ -532,6 +546,20 @@ class MainActivity : Activity() {
         )
 
         refreshAndroidReceiverStatus()
+        ZevClipStatusNotification.update(this)
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(
+                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                REQUEST_POST_NOTIFICATIONS
+            )
+        }
     }
 
     private fun refreshAndroidReceiverStatus() {
@@ -820,6 +848,10 @@ class MainActivity : Activity() {
 
     private fun dp(value: Int): Int {
         return (value * resources.displayMetrics.density).toInt()
+    }
+
+    private companion object {
+        const val REQUEST_POST_NOTIFICATIONS = 2001
     }
 
 }

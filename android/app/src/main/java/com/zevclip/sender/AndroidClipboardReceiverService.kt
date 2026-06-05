@@ -53,6 +53,7 @@ class AndroidClipboardReceiverService : Service() {
             isRunning = false,
             status = "Starting Android receiver on port ${AndroidClipboardHttpReceiver.DEFAULT_PORT}…"
         )
+        ZevClipStatusNotification.update(this)
 
         val newReceiver = AndroidClipboardHttpReceiver(
             context = this,
@@ -63,6 +64,7 @@ class AndroidClipboardReceiverService : Service() {
                     isRunning = true,
                     status = "Listening on port $readyPort. Starting local discovery advertising…"
                 )
+                ZevClipStatusNotification.update(this)
                 Log.i(TAG, "Android clipboard receiver listening on port $readyPort")
                 startAdvertising(readyPort)
             },
@@ -73,6 +75,7 @@ class AndroidClipboardReceiverService : Service() {
                     isRunning = false,
                     status = message
                 )
+                ZevClipStatusNotification.update(this)
                 Log.w(TAG, message)
                 receiver = null
                 stopSelf()
@@ -84,6 +87,7 @@ class AndroidClipboardReceiverService : Service() {
                     timestampMillis = now,
                     status = "Received ${text.utf8Size()} bytes from Mac at ${formatTime(now)}."
                 )
+                ZevClipStatusNotification.update(this)
                 Log.i(TAG, "Received ${text.length} characters from Mac")
             }
         )
@@ -101,6 +105,7 @@ class AndroidClipboardReceiverService : Service() {
             isRunning = false,
             status = status
         )
+        ZevClipStatusNotification.update(this)
     }
 
     private fun startAdvertising(port: Int) {
@@ -131,6 +136,7 @@ class AndroidClipboardReceiverService : Service() {
                     isAdvertising = true,
                     status = "Listening on port $port and advertising as $registeredName."
                 )
+                ZevClipStatusNotification.update(this@AndroidClipboardReceiverService)
                 Log.i(TAG, "Android receiver advertising as $registeredName ($SERVICE_TYPE)")
             }
 
@@ -143,6 +149,7 @@ class AndroidClipboardReceiverService : Service() {
                     isAdvertising = false,
                     status = "Listening on port $port, but advertising failed (error $errorCode)."
                 )
+                ZevClipStatusNotification.update(this@AndroidClipboardReceiverService)
                 Log.w(TAG, "Android receiver advertising failed: $errorCode")
             }
 
@@ -154,6 +161,7 @@ class AndroidClipboardReceiverService : Service() {
                     this@AndroidClipboardReceiverService,
                     isAdvertising = false
                 )
+                ZevClipStatusNotification.update(this@AndroidClipboardReceiverService)
                 Log.i(TAG, "Android receiver advertising stopped")
             }
 
@@ -166,6 +174,7 @@ class AndroidClipboardReceiverService : Service() {
                     isAdvertising = false,
                     status = "Advertising stop failed (error $errorCode)."
                 )
+                ZevClipStatusNotification.update(this@AndroidClipboardReceiverService)
                 Log.w(TAG, "Android receiver advertising stop failed: $errorCode")
             }
         }
@@ -180,6 +189,7 @@ class AndroidClipboardReceiverService : Service() {
                 isAdvertising = false,
                 status = "Listening on port $port, but advertising failed: ${error.message ?: "unknown error"}"
             )
+            ZevClipStatusNotification.update(this)
             Log.w(TAG, "Android receiver advertising threw an exception", error)
         }
     }
@@ -193,6 +203,7 @@ class AndroidClipboardReceiverService : Service() {
         } catch (error: IllegalArgumentException) {
             Log.w(TAG, "Android receiver advertising was already stopped", error)
             ZevClipPreferences.setAndroidReceiverAdvertising(this, isAdvertising = false)
+            ZevClipStatusNotification.update(this)
         } catch (error: RuntimeException) {
             Log.w(TAG, "Android receiver advertising stop threw an exception", error)
             ZevClipPreferences.setAndroidReceiverAdvertising(
@@ -200,6 +211,7 @@ class AndroidClipboardReceiverService : Service() {
                 isAdvertising = false,
                 status = "Advertising stop failed: ${error.message ?: "unknown error"}"
             )
+            ZevClipStatusNotification.update(this)
         }
     }
 
