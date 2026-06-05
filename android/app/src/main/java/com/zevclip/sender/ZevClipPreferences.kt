@@ -23,6 +23,7 @@ object ZevClipPreferences {
     const val KEY_ANDROID_RECEIVER_ADVERTISING = "android_receiver_advertising"
     const val KEY_ANDROID_RECEIVER_LAST_RECEIVED_AT = "android_receiver_last_received_at"
     const val KEY_ANDROID_RECEIVER_LAST_RECEIVED_STATUS = "android_receiver_last_received_status"
+    const val KEY_CLIPBOARD_SYNC_ENABLED = "clipboard_sync_enabled"
 
     private const val KEY_ANDROID_DEVICE_ID = "android_device_id"
     private const val KEY_LAST_TILE_SUBTITLE = "last_tile_subtitle"
@@ -175,6 +176,16 @@ object ZevClipPreferences {
         preferences(context).edit()
             .putString(KEY_LAST_TILE_SUBTITLE, subtitle)
             .putString(KEY_LAST_TILE_STATUS, status)
+            .apply()
+    }
+
+    fun isClipboardSyncEnabled(context: Context): Boolean {
+        return preferences(context).getBoolean(KEY_CLIPBOARD_SYNC_ENABLED, true)
+    }
+
+    fun setClipboardSyncEnabled(context: Context, isEnabled: Boolean) {
+        preferences(context).edit()
+            .putBoolean(KEY_CLIPBOARD_SYNC_ENABLED, isEnabled)
             .apply()
     }
 

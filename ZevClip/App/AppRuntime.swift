@@ -44,12 +44,18 @@ final class ZevClipRuntime {
     }
 
     func start() {
-        macClipboardWatcher.start()
+        startClipboardSync()
         statusItemController.start()
 
         if !appSettings.showMenuBarIcon {
             showSettingsWindow()
         }
+    }
+
+    private func startClipboardSync() {
+        receiver.startServer()
+        macClipboardWatcher.start()
+        androidClipboardSender.rediscoverAndroidReceiver()
     }
 
     func showSettingsWindow() {
@@ -114,6 +120,10 @@ private final class StatusItemController: NSObject {
 
     private var statusItem: NSStatusItem?
     private var cancellables: Set<AnyCancellable> = []
+
+    private var isClipboardSyncRunning: Bool {
+        receiver.status == .running && macClipboardWatcher.isRunning
+    }
 
     init(
         receiver: ClipboardReceiver,
@@ -211,40 +221,38 @@ private final class StatusItemController: NSObject {
     private func makeMenu() -> NSMenu {
         let menu = NSMenu()
 
-        addDisabledItem("Receiver: \(receiver.status.title)", to: menu)
-        addDisabledItem(receiver.detailMessage.truncatedForMenu(), to: menu)
         addDisabledItem(
-            receiver.isAdvertising ? "Bonjour: Advertising" : "Bonjour: Not advertising",
+            isClipboardSyncRunning ? "Clipboard Sync: On" : "Clipboard Sync: Off",
             to: menu
         )
-        addDisabledItem("Port: \(ClipboardReceiver.port)", to: menu)
+        addDisabledItem("Mac Receiver: \(receiver.status.title)", to: menu)
+        addDisabledItem(
+            macClipboardWatcher.isRunning ? "Mac Watcher: Watching" : "Mac Watcher: Stopped",
+            to: menu
+        )
 
         if let lastReceivedAt = receiver.lastReceivedAt {
             addDisabledItem(
-                "Last sync: \(lastReceivedAt.formatted(date: .omitted, time: .shortened))",
+                "Last received: \(lastReceivedAt.formatted(date: .omitted, time: .shortened))",
                 to: menu
             )
         } else {
-            addDisabledItem("Last sync: None", to: menu)
+            addDisabledItem("Last received: None", to: menu)
         }
 
         if let lastReceivedText = receiver.lastReceivedText, !lastReceivedText.isEmpty {
             menu.addItem(.separator())
-            addDisabledItem("Last Received", to: menu)
+            addDisabledItem("From Android", to: menu)
             addDisabledItem(lastReceivedText.truncatedForMenu(), to: menu)
         }
 
         menu.addItem(.separator())
-        addDisabledItem(
-            macClipboardWatcher.isRunning ? "Mac Clipboard: Watching" : "Mac Clipboard: Stopped",
-            to: menu
-        )
-        addDisabledItem(androidClipboardSender.status.truncatedForMenu(), to: menu)
         if let endpoint = androidClipboardSender.resolvedEndpoint {
             addDisabledItem("Android: \(endpoint.displayAddress.truncatedForMenu())", to: menu)
         } else {
             addDisabledItem("Android: Not discovered", to: menu)
         }
+        addDisabledItem(androidClipboardSender.status.truncatedForMenu(), to: menu)
 
         if let lastSentAt = androidClipboardSender.lastSentAt {
             addDisabledItem(
@@ -257,29 +265,14 @@ private final class StatusItemController: NSObject {
 
         menu.addItem(.separator())
         menu.addItem(actionItem(
-            title: "Start Receiver",
-            action: #selector(startReceiver),
-            isEnabled: receiver.canStart
+            title: "Start Clipboard Sync",
+            action: #selector(startClipboardSync),
+            isEnabled: !isClipboardSyncRunning
         ))
         menu.addItem(actionItem(
-            title: "Stop Receiver",
-            action: #selector(stopReceiver),
-            isEnabled: receiver.canStop
-        ))
-        menu.addItem(actionItem(
-            title: "Start Mac Clipboard Watcher",
-            action: #selector(startMacClipboardWatcher),
-            isEnabled: !macClipboardWatcher.isRunning
-        ))
-        menu.addItem(actionItem(
-            title: "Stop Mac Clipboard Watcher",
-            action: #selector(stopMacClipboardWatcher),
-            isEnabled: macClipboardWatcher.isRunning
-        ))
-        menu.addItem(actionItem(
-            title: "Rediscover Android Receiver",
-            action: #selector(rediscoverAndroidReceiver),
-            isEnabled: !androidClipboardSender.isDiscovering
+            title: "Stop Clipboard Sync",
+            action: #selector(stopClipboardSync),
+            isEnabled: isClipboardSyncRunning
         ))
 
         menu.addItem(.separator())
@@ -339,24 +332,15 @@ private final class StatusItemController: NSObject {
         return item
     }
 
-    @objc private func startReceiver() {
+    @objc private func startClipboardSync() {
         receiver.startServer()
-    }
-
-    @objc private func stopReceiver() {
-        receiver.stopServer()
-    }
-
-    @objc private func startMacClipboardWatcher() {
         macClipboardWatcher.start()
-    }
-
-    @objc private func stopMacClipboardWatcher() {
-        macClipboardWatcher.stop()
-    }
-
-    @objc private func rediscoverAndroidReceiver() {
         androidClipboardSender.rediscoverAndroidReceiver()
+    }
+
+    @objc private func stopClipboardSync() {
+        receiver.stopServer()
+        macClipboardWatcher.stop()
     }
 
     @objc private func toggleMenuBarIcon() {

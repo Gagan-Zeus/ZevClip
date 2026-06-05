@@ -1,8 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">ZevClip</string>
-    <string name="screen_title">Sync clipboard with Mac</string>
-    <string name="screen_description">Both devices must be on the same local network, including a phone hotspot.</string>
+    <string name="screen_title">ZevClip</string>
+    <string name="screen_description">One switch shares clipboard both ways on the same Wi-Fi, LAN, or phone hotspot.</string>
+    <string name="clipboard_sync_title">Clipboard sync</string>
+    <string name="start_clipboard_sync">Start Clipboard Sync</string>
+    <string name="stop_clipboard_sync">Stop Clipboard Sync</string>
+    <string name="sync_summary">Sync: %1$s\nAndroid to Mac: %2$s\nMac to Android: %3$s</string>
+    <string name="sync_started">Clipboard sync started.</string>
+    <string name="sync_started_accessibility_needed">Sync started. Enable ZevClip Accessibility for Android to Mac copies.</string>
+    <string name="sync_stopped">Clipboard sync stopped.</string>
+    <string name="on">On</string>
+    <string name="off">Off</string>
+    <string name="needs_setup">Needs setup</string>
     <string name="discovery_title">Local Mac discovery</string>
     <string name="discovery_instructions">Start the Mac receiver, then discover it automatically on the same Wi-Fi/LAN or phone hotspot. Manual IP entry remains available below.</string>
     <string name="discover_mac">Discover Mac</string>
@@ -20,7 +30,7 @@
     <string name="qr_pairing_saved_unverified">Saved %1$s at %2$s:%3$d, but the phone could not verify that address is reachable.</string>
     <string name="qr_pairing_saved_discovery_status">Paired from QR: %1$s at %2$s:%3$d.</string>
     <string name="pairing_title">Pairing</string>
-    <string name="pairing_instructions">Enter the pairing token shown on the Mac. ZevClip stores it in private app preferences for this MVP and sends it with every request.</string>
+    <string name="pairing_instructions">Scan the Mac QR once, or enter the Mac address and token manually.</string>
     <string name="pairing_token_label">Pairing token</string>
     <string name="pairing_token_hint">Paste Mac pairing token</string>
     <string name="save_pairing_token">Save Pairing Token</string>
@@ -32,6 +42,7 @@
     <string name="start_android_receiver">Start Android Receiver</string>
     <string name="stop_android_receiver">Stop Android Receiver</string>
     <string name="android_receiver_status">Receiver: %1$s\nDiscovery: %2$s\nPort: %3$d\nDevice ID: %4$s\nStatus: %5$s</string>
+    <string name="android_receiver_compact_status">Android receiver: %1$s on port %2$d</string>
     <string name="android_receiver_last_received">Last received: %1$s\n%2$s</string>
     <string name="running">Running</string>
     <string name="stopped">Stopped</string>
@@ -43,6 +54,7 @@
     <string name="accessibility_permission_enabled">Enabled</string>
     <string name="accessibility_permission_disabled">Disabled</string>
     <string name="accessibility_state_details">Accessibility permission: %1$s\nService bound: %2$s\nLast service event: %3$s\nDiagnostic: %4$s</string>
+    <string name="accessibility_compact_status">Android to Mac permission: %1$s</string>
     <string name="recheck_accessibility_permission">Recheck Permission</string>
     <string name="open_app_info">Open App Info</string>
     <string name="background_health_title">Background Health</string>

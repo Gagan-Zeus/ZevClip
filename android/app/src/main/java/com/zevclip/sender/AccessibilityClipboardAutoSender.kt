@@ -13,6 +13,11 @@ object AccessibilityClipboardAutoSender {
         val appContext = context.applicationContext
         val uiVisible = isUiVisible(appContext)
 
+        if (!ZevClipPreferences.isClipboardSyncEnabled(appContext)) {
+            updateStatus(appContext, "Skipped: clipboard sync is off.", uiVisible)
+            return
+        }
+
         ClipboardSyncCoordinator.sendIfChanged(appContext, text) { result ->
             when (result) {
                 is ClipboardSyncResult.Success -> {

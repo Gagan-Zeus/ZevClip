@@ -47,13 +47,10 @@ class MainActivity : Activity() {
     private lateinit var pairingStatusText: TextView
     private lateinit var androidReceiverStatusText: TextView
     private lateinit var androidReceiverLastReceivedText: TextView
-    private lateinit var startAndroidReceiverButton: Button
-    private lateinit var stopAndroidReceiverButton: Button
+    private lateinit var startClipboardSyncButton: Button
+    private lateinit var stopClipboardSyncButton: Button
     private lateinit var accessibilityStatusText: TextView
-    private lateinit var backgroundHealthStatusText: TextView
-    private lateinit var recheckAccessibilityButton: Button
     private lateinit var lastAutoStatusText: TextView
-    private lateinit var tileStatusText: TextView
     private lateinit var discoveryManager: MacDiscoveryManager
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -71,7 +68,8 @@ class MainActivity : Activity() {
             key == ZevClipPreferences.KEY_ANDROID_RECEIVER_STATUS ||
             key == ZevClipPreferences.KEY_ANDROID_RECEIVER_ADVERTISING ||
             key == ZevClipPreferences.KEY_ANDROID_RECEIVER_LAST_RECEIVED_AT ||
-            key == ZevClipPreferences.KEY_ANDROID_RECEIVER_LAST_RECEIVED_STATUS
+            key == ZevClipPreferences.KEY_ANDROID_RECEIVER_LAST_RECEIVED_STATUS ||
+            key == ZevClipPreferences.KEY_CLIPBOARD_SYNC_ENABLED
         ) {
             runOnUiThread { refreshSyncStatuses() }
         }
@@ -107,6 +105,9 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         AccessibilityServiceStatus.logCurrentState(this, "MainActivity.onResume")
+        if (ZevClipPreferences.isClipboardSyncEnabled(this)) {
+            AndroidClipboardReceiverService.start(this)
+        }
         refreshSyncStatuses()
         scheduleAccessibilityRechecks()
     }
@@ -148,11 +149,70 @@ class MainActivity : Activity() {
             setPadding(0, dp(6), 0, dp(20))
         })
 
-        content.addView(sectionTitle(R.string.discovery_title))
+        content.addView(sectionTitle(R.string.clipboard_sync_title))
+
+        statusText = textView(getString(R.string.ready), 15f, Color.DKGRAY).apply {
+            setPadding(0, dp(6), 0, dp(8))
+        }
+        content.addView(statusText, matchWidth())
+
+        androidReceiverStatusText = textView("", 14f, Color.DKGRAY).apply {
+            setPadding(0, dp(6), 0, dp(8))
+        }
+        content.addView(androidReceiverStatusText, matchWidth())
+
+        lastAutoStatusText = textView("", 14f, Color.DKGRAY).apply {
+            setPadding(0, 0, 0, dp(8))
+        }
+        content.addView(lastAutoStatusText, matchWidth())
+
+        androidReceiverLastReceivedText = textView("", 14f, Color.DKGRAY).apply {
+            setPadding(0, 0, 0, dp(8))
+        }
+        content.addView(androidReceiverLastReceivedText, matchWidth())
+
+        startClipboardSyncButton = Button(this).apply {
+            text = getString(R.string.start_clipboard_sync)
+            isAllCaps = false
+            setOnClickListener { startClipboardSync() }
+        }
+        content.addView(startClipboardSyncButton, matchWidth(topMargin = 8))
+
+        stopClipboardSyncButton = Button(this).apply {
+            text = getString(R.string.stop_clipboard_sync)
+            isAllCaps = false
+            setOnClickListener { stopClipboardSync() }
+        }
+        content.addView(stopClipboardSyncButton, matchWidth(topMargin = 8))
+
+        accessibilityStatusText = textView("", 14f, Color.DKGRAY).apply {
+            setPadding(0, dp(12), 0, 0)
+        }
+        content.addView(accessibilityStatusText, matchWidth())
+
+        content.addView(Button(this).apply {
+            text = getString(R.string.open_accessibility_settings)
+            isAllCaps = false
+            setOnClickListener {
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }
+        }, matchWidth(topMargin = 8))
+
+        content.addView(divider(), dividerLayoutParams(topMargin = 12))
+
+        content.addView(sectionTitle(R.string.pairing_title))
         content.addView(
-            textView(getString(R.string.discovery_instructions), 14f, Color.DKGRAY),
+            textView(getString(R.string.pairing_instructions), 14f, Color.DKGRAY),
             matchWidth()
         )
+
+        scanPairingQrButton = Button(this).apply {
+            text = getString(R.string.scan_pairing_qr)
+            isAllCaps = false
+            setOnClickListener { scanPairingQr() }
+        }
+        content.addView(scanPairingQrButton, matchWidth(topMargin = 8))
+
         discoverButton = Button(this).apply {
             text = getString(R.string.discover_mac)
             isAllCaps = false
@@ -164,26 +224,7 @@ class MainActivity : Activity() {
             setPadding(0, dp(12), 0, dp(8))
         }
         content.addView(discoveryStatusText, matchWidth())
-        content.addView(divider(), dividerLayoutParams(topMargin = 12))
 
-        content.addView(sectionTitle(R.string.qr_pairing_title))
-        content.addView(
-            textView(getString(R.string.qr_pairing_instructions), 14f, Color.DKGRAY),
-            matchWidth()
-        )
-        scanPairingQrButton = Button(this).apply {
-            text = getString(R.string.scan_pairing_qr)
-            isAllCaps = false
-            setOnClickListener { scanPairingQr() }
-        }
-        content.addView(scanPairingQrButton, matchWidth(topMargin = 8))
-        content.addView(divider(), dividerLayoutParams(topMargin = 12))
-
-        content.addView(sectionTitle(R.string.pairing_title))
-        content.addView(
-            textView(getString(R.string.pairing_instructions), 14f, Color.DKGRAY),
-            matchWidth()
-        )
         content.addView(fieldLabel(R.string.pairing_token_label))
         pairingTokenInput = EditText(this).apply {
             hint = getString(R.string.pairing_token_hint)
@@ -203,128 +244,10 @@ class MainActivity : Activity() {
         }, matchWidth(topMargin = 8))
 
         pairingStatusText = textView(getString(R.string.pairing_token_not_saved), 14f, Color.DKGRAY).apply {
-            setPadding(0, dp(12), 0, dp(8))
+            setPadding(0, dp(12), 0, 0)
         }
         content.addView(pairingStatusText, matchWidth())
-        content.addView(divider(), dividerLayoutParams(topMargin = 12))
 
-        content.addView(sectionTitle(R.string.android_receiver_title))
-        content.addView(
-            textView(getString(R.string.android_receiver_instructions), 14f, Color.DKGRAY),
-            matchWidth()
-        )
-        androidReceiverStatusText = textView("", 14f, Color.DKGRAY).apply {
-            setPadding(0, dp(12), 0, dp(8))
-        }
-        content.addView(androidReceiverStatusText, matchWidth())
-
-        androidReceiverLastReceivedText = textView("", 14f, Color.DKGRAY).apply {
-            setPadding(0, 0, 0, dp(8))
-        }
-        content.addView(androidReceiverLastReceivedText, matchWidth())
-
-        startAndroidReceiverButton = Button(this).apply {
-            text = getString(R.string.start_android_receiver)
-            isAllCaps = false
-            setOnClickListener {
-                AndroidClipboardReceiverService.start(this@MainActivity)
-                refreshSyncStatuses()
-            }
-        }
-        content.addView(startAndroidReceiverButton, matchWidth(topMargin = 8))
-
-        stopAndroidReceiverButton = Button(this).apply {
-            text = getString(R.string.stop_android_receiver)
-            isAllCaps = false
-            setOnClickListener {
-                AndroidClipboardReceiverService.stop(this@MainActivity)
-                refreshSyncStatuses()
-            }
-        }
-        content.addView(stopAndroidReceiverButton, matchWidth(topMargin = 8))
-        content.addView(divider(), dividerLayoutParams(topMargin = 12))
-
-        content.addView(sectionTitle(R.string.auto_send_title))
-        accessibilityStatusText = textView("", 15f, Color.DKGRAY)
-        content.addView(accessibilityStatusText, matchWidth())
-
-        content.addView(Button(this).apply {
-            text = getString(R.string.open_accessibility_settings)
-            isAllCaps = false
-            setOnClickListener {
-                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-            }
-        }, matchWidth(topMargin = 8))
-
-        recheckAccessibilityButton = Button(this).apply {
-            text = getString(R.string.recheck_accessibility_permission)
-            isAllCaps = false
-            setOnClickListener {
-                AccessibilityServiceStatus.logCurrentState(
-                    this@MainActivity,
-                    "Manual accessibility recheck"
-                )
-                refreshSyncStatuses()
-            }
-        }
-        content.addView(recheckAccessibilityButton, matchWidth(topMargin = 8))
-
-        lastAutoStatusText = textView("", 14f, Color.DKGRAY).apply {
-            setPadding(0, dp(12), 0, dp(8))
-        }
-        content.addView(lastAutoStatusText, matchWidth())
-
-        content.addView(divider(), dividerLayoutParams(topMargin = 12))
-        content.addView(sectionTitle(R.string.background_health_title))
-        backgroundHealthStatusText = textView("", 14f, Color.DKGRAY).apply {
-            setPadding(0, 0, 0, dp(8))
-        }
-        content.addView(backgroundHealthStatusText, matchWidth())
-
-        content.addView(Button(this).apply {
-            text = getString(R.string.open_app_info)
-            isAllCaps = false
-            setOnClickListener { openAppInfoSettings() }
-        }, matchWidth(topMargin = 8))
-
-        content.addView(Button(this).apply {
-            text = getString(R.string.open_battery_optimization_settings)
-            isAllCaps = false
-            setOnClickListener { openBatteryOptimizationSettings() }
-        }, matchWidth(topMargin = 8))
-
-        content.addView(Button(this).apply {
-            text = getString(R.string.request_ignore_battery_optimization)
-            isAllCaps = false
-            setOnClickListener { requestIgnoreBatteryOptimizations() }
-        }, matchWidth(topMargin = 8))
-
-        content.addView(Button(this).apply {
-            text = getString(R.string.open_autostart_settings)
-            isAllCaps = false
-            setOnClickListener { openAutoStartSettings() }
-        }, matchWidth(topMargin = 8))
-
-        content.addView(divider(), dividerLayoutParams(topMargin = 12))
-
-        content.addView(sectionTitle(R.string.quick_settings_title))
-        content.addView(
-            textView(getString(R.string.quick_settings_instructions), 14f, Color.DKGRAY),
-            matchWidth()
-        )
-        content.addView(Button(this).apply {
-            text = getString(R.string.add_quick_settings_tile)
-            isAllCaps = false
-            setOnClickListener { requestQuickSettingsTile() }
-        }, matchWidth(topMargin = 8))
-
-        tileStatusText = textView("", 14f, Color.DKGRAY).apply {
-            setPadding(0, dp(12), 0, dp(8))
-        }
-        content.addView(tileStatusText, matchWidth())
-        content.addView(divider(), dividerLayoutParams(topMargin = 12))
-
-        content.addView(sectionTitle(R.string.manual_send_title))
         content.addView(fieldLabel(R.string.mac_ip_label))
         ipAddressInput = EditText(this).apply {
             hint = getString(R.string.mac_ip_hint)
@@ -348,28 +271,6 @@ class MainActivity : Activity() {
             )
         }
         content.addView(portInput, matchWidth())
-
-        content.addView(fieldLabel(R.string.text_label))
-        textInput = EditText(this).apply {
-            hint = getString(R.string.text_hint)
-            gravity = Gravity.TOP or Gravity.START
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
-            minLines = 6
-            maxLines = 12
-        }
-        content.addView(textInput, matchWidth())
-
-        sendButton = Button(this).apply {
-            text = getString(R.string.send)
-            isAllCaps = false
-            setOnClickListener { sendText() }
-        }
-        content.addView(sendButton, matchWidth(topMargin = 18))
-
-        statusText = textView(getString(R.string.ready), 15f, Color.DKGRAY).apply {
-            setPadding(0, dp(16), 0, dp(8))
-        }
-        content.addView(statusText, matchWidth())
 
         return ScrollView(this).apply {
             isFillViewport = true
@@ -434,6 +335,44 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun startClipboardSync() {
+        saveEndpointAndTokenFromUi()
+        ZevClipPreferences.setClipboardSyncEnabled(this, true)
+        AndroidClipboardReceiverService.start(this)
+        discoveryManager.discover()
+
+        val accessibilityState = AccessibilityServiceStatus.currentState(this)
+        if (accessibilityState.enabled) {
+            showSuccess(getString(R.string.sync_started))
+        } else {
+            showFailure(getString(R.string.sync_started_accessibility_needed))
+            Toast.makeText(
+                this,
+                getString(R.string.sync_started_accessibility_needed),
+                Toast.LENGTH_LONG
+            ).show()
+        }
+
+        refreshSyncStatuses()
+    }
+
+    private fun stopClipboardSync() {
+        ZevClipPreferences.setClipboardSyncEnabled(this, false)
+        AndroidClipboardReceiverService.stop(this)
+        ZevClipPreferences.setLastAutoStatus(this, getString(R.string.sync_stopped))
+        showSuccess(getString(R.string.sync_stopped))
+        refreshSyncStatuses()
+    }
+
+    private fun saveEndpointAndTokenFromUi() {
+        ZevClipPreferences.saveEndpoint(
+            this,
+            ipAddressInput.text.toString(),
+            portInput.text.toString()
+        )
+        ZevClipPreferences.savePairingToken(this, pairingTokenInput.text.toString())
+    }
+
     private fun scanPairingQr() {
         scanPairingQrButton.isEnabled = false
         statusText.setTextColor(Color.DKGRAY)
@@ -485,6 +424,7 @@ class MainActivity : Activity() {
                         ZevClipPreferences.saveEndpoint(this, selectedHost, payload.port.toString())
                         ZevClipPreferences.savePairingToken(this, payload.token)
                         ZevClipPreferences.saveDeviceId(this, payload.deviceId)
+                        ZevClipPreferences.setClipboardSyncEnabled(this, true)
                         AndroidClipboardReceiverService.start(this)
                         ZevClipPreferences.setDiscoveryStatus(
                             this,
@@ -535,43 +475,51 @@ class MainActivity : Activity() {
 
     private fun refreshSyncStatuses() {
         val accessibilityState = AccessibilityServiceStatus.currentState(this)
+        val syncEnabled = ZevClipPreferences.isClipboardSyncEnabled(this)
+        val endpoint = ZevClipPreferences.endpoint(this)
+        val hasToken = ZevClipPreferences.pairingToken(this).isNotEmpty()
+        val receiverRunning = ZevClipPreferences.isAndroidReceiverRunning(this)
+        val canSendToMac = syncEnabled && accessibilityState.enabled && endpoint != null && hasToken
+        val canReceiveFromMac = syncEnabled && receiverRunning
+
+        statusText.setTextColor(
+            when {
+                canSendToMac && canReceiveFromMac -> Color.rgb(24, 120, 54)
+                syncEnabled -> Color.rgb(180, 92, 0)
+                else -> Color.DKGRAY
+            }
+        )
+        statusText.text = getString(
+            R.string.sync_summary,
+            if (syncEnabled) getString(R.string.on) else getString(R.string.off),
+            if (canSendToMac) getString(R.string.ready) else getString(R.string.needs_setup),
+            if (canReceiveFromMac) getString(R.string.ready) else getString(R.string.stopped)
+        )
+
         accessibilityStatusText.setTextColor(
             if (accessibilityState.enabled) Color.rgb(24, 120, 54) else Color.rgb(180, 32, 32)
         )
         accessibilityStatusText.text = getString(
-            R.string.accessibility_state_details,
+            R.string.accessibility_compact_status,
             if (accessibilityState.enabled) {
                 getString(R.string.accessibility_permission_enabled)
             } else {
                 getString(R.string.accessibility_permission_disabled)
-            },
-            if (accessibilityState.serviceBound) {
-                getString(R.string.yes)
-            } else {
-                getString(R.string.no)
-            },
-            accessibilityState.lastServiceEvent,
-            accessibilityState.diagnostic
+            }
         )
 
-        val lastAutoStatus = if (ZevClipPreferences.endpoint(this) == null) {
+        val lastAutoStatus = if (endpoint == null) {
             getString(R.string.auto_send_waiting_for_endpoint)
         } else {
             ZevClipPreferences.lastAutoStatus(this)
         }
 
         lastAutoStatusText.text = getString(R.string.last_auto_send_status, lastAutoStatus)
-        refreshBackgroundHealthStatus(accessibilityState)
-        tileStatusText.text = getString(
-            R.string.last_tile_status,
-            ZevClipPreferences.lastTileStatus(this)
-        )
         discoveryStatusText.text = getString(
             R.string.discovery_status,
             ZevClipPreferences.discoveryStatus(this)
         )
 
-        val hasToken = ZevClipPreferences.pairingToken(this).isNotEmpty()
         pairingStatusText.setTextColor(
             if (hasToken) Color.rgb(24, 120, 54) else Color.DKGRAY
         )
@@ -592,16 +540,9 @@ class MainActivity : Activity() {
             if (isRunning) Color.rgb(24, 120, 54) else Color.DKGRAY
         )
         androidReceiverStatusText.text = getString(
-            R.string.android_receiver_status,
+            R.string.android_receiver_compact_status,
             if (isRunning) getString(R.string.running) else getString(R.string.stopped),
-            if (ZevClipPreferences.isAndroidReceiverAdvertising(this)) {
-                getString(R.string.advertising)
-            } else {
-                getString(R.string.not_advertising)
-            },
-            AndroidClipboardHttpReceiver.DEFAULT_PORT,
-            ZevClipPreferences.androidDeviceId(this),
-            ZevClipPreferences.androidReceiverStatus(this)
+            AndroidClipboardHttpReceiver.DEFAULT_PORT
         )
 
         val lastReceivedAt = ZevClipPreferences.androidReceiverLastReceivedAt(this)
@@ -611,8 +552,8 @@ class MainActivity : Activity() {
             ZevClipPreferences.androidReceiverLastReceivedStatus(this)
         )
 
-        startAndroidReceiverButton.isEnabled = !isRunning
-        stopAndroidReceiverButton.isEnabled = isRunning
+        startClipboardSyncButton.isEnabled = !ZevClipPreferences.isClipboardSyncEnabled(this) || !isRunning
+        stopClipboardSyncButton.isEnabled = ZevClipPreferences.isClipboardSyncEnabled(this) || isRunning
     }
 
     private fun scheduleAccessibilityRechecks() {
@@ -734,32 +675,6 @@ class MainActivity : Activity() {
 
         showFailure(fallbackMessage)
         Toast.makeText(this, fallbackMessage, Toast.LENGTH_LONG).show()
-    }
-
-    private fun refreshBackgroundHealthStatus(accessibilityState: AccessibilityServiceStatus.State) {
-        val isIgnoringBatteryOptimizations = isIgnoringBatteryOptimizations()
-        val warning = if (isIgnoringBatteryOptimizations) {
-            ""
-        } else {
-            "\n${getString(R.string.battery_optimization_warning)}"
-        }
-
-        backgroundHealthStatusText.setTextColor(
-            if (accessibilityState.enabled && isIgnoringBatteryOptimizations) {
-                Color.rgb(24, 120, 54)
-            } else {
-                Color.rgb(180, 92, 0)
-            }
-        )
-        backgroundHealthStatusText.text = getString(
-            R.string.background_health_details,
-            yesNo(accessibilityState.enabled),
-            yesNo(isIgnoringBatteryOptimizations),
-            getString(R.string.autostart_status_unknown_open_settings),
-            formatTimestamp(ZevClipPreferences.lastServiceConnectedAt(this)),
-            formatTimestamp(ZevClipPreferences.lastAutoSendAt(this)),
-            warning
-        )
     }
 
     private fun isIgnoringBatteryOptimizations(): Boolean {

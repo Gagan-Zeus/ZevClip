@@ -6,97 +6,87 @@ struct ContentView: View {
     @ObservedObject var androidClipboardSender: AndroidClipboardSender
     @ObservedObject var appSettings: AppSettings
 
-    private var statusColor: Color {
-        switch receiver.status {
-        case .running:
-            return .green
-        case .starting:
-            return .orange
-        case .stopped:
-            return .secondary
-        case .failed:
-            return .red
-        }
+    private var isSyncRunning: Bool {
+        receiver.status == .running && macClipboardWatcher.isRunning
     }
 
-    private var senderStatusColor: Color {
-        if androidClipboardSender.isSending || androidClipboardSender.isDiscovering {
-            return .orange
-        }
-        if androidClipboardSender.lastSentAt != nil {
+    private var syncColor: Color {
+        if isSyncRunning {
             return .green
         }
+
+        if receiver.status == .starting || androidClipboardSender.isSending || androidClipboardSender.isDiscovering {
+            return .orange
+        }
+
+        if case .failed = receiver.status {
+            return .red
+        }
+
         return .secondary
+    }
+
+    private var syncTitle: String {
+        isSyncRunning ? "Clipboard Sync On" : "Clipboard Sync Off"
     }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 18) {
                 HStack(spacing: 10) {
                     Circle()
-                        .fill(statusColor)
+                        .fill(syncColor)
                         .frame(width: 10, height: 10)
 
-                    Text(receiver.status.title)
-                        .font(.headline)
+                    Text(syncTitle)
+                        .font(.title2.bold())
 
                     Spacer()
 
-                    Text("Port \(ClipboardReceiver.port)")
-                        .font(.system(.body, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                }
-
-                Text(receiver.detailMessage)
-                    .foregroundStyle(.secondary)
-
-                HStack {
-                    Button("Start Server") {
-                        receiver.startServer()
+                    Button(isSyncRunning ? "Stop Clipboard Sync" : "Start Clipboard Sync") {
+                        if isSyncRunning {
+                            stopClipboardSync()
+                        } else {
+                            startClipboardSync()
+                        }
                     }
                     .keyboardShortcut("r", modifiers: [.command])
-                    .disabled(!receiver.canStart)
-
-                    Button("Stop Server") {
-                        receiver.stopServer()
-                    }
-                    .disabled(!receiver.canStop)
                 }
 
-                Divider()
+                Text("One control handles Android to Mac and Mac to Android clipboard sharing.")
+                    .foregroundStyle(.secondary)
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Application")
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Status")
                         .font(.headline)
 
-                    Toggle(
-                        "Show in menu bar",
-                        isOn: Binding(
-                            get: { appSettings.showMenuBarIcon },
-                            set: { appSettings.setShowMenuBarIcon($0) }
-                        )
-                    )
-
-                    if !appSettings.showMenuBarIcon {
-                        Text("ZevClip will keep running. Reopen the app to show Settings again.")
-                            .foregroundStyle(.orange)
-                            .font(.caption)
+                    LabeledContent("Mac receiver") {
+                        Text(receiver.status.title)
+                            .foregroundStyle(receiver.status == .running ? .green : syncColor)
                     }
 
-                    Toggle(
-                        "Launch at Login",
-                        isOn: Binding(
-                            get: { appSettings.launchAtLoginEnabled },
-                            set: { appSettings.setLaunchAtLoginEnabled($0) }
-                        )
-                    )
+                    LabeledContent("Mac watcher") {
+                        Text(macClipboardWatcher.isRunning ? "Watching" : "Stopped")
+                            .foregroundStyle(macClipboardWatcher.isRunning ? .green : .secondary)
+                    }
 
-                    Text(appSettings.launchAtLoginStatus)
-                        .foregroundStyle(.secondary)
+                    LabeledContent("Android") {
+                        if let endpoint = androidClipboardSender.resolvedEndpoint {
+                            Text(endpoint.displayAddress)
+                                .textSelection(.enabled)
+                        } else {
+                            Text("Not discovered")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
 
-                    Text("ZevClip starts the receiver and Bonjour advertising automatically when the app launches.")
+                    LabeledContent("Sender") {
+                        Text(androidClipboardSender.status)
+                            .foregroundStyle(androidClipboardSender.isDiscovering ? .orange : .secondary)
+                    }
+
+                    Text(macClipboardWatcher.status)
                         .foregroundStyle(.secondary)
-                        .font(.caption)
                 }
 
                 Divider()
@@ -105,7 +95,7 @@ struct ContentView: View {
                     Text("Pairing")
                         .font(.headline)
 
-                    Text("Enter this token in the Android app. Requests without this token are rejected.")
+                    Text("Scan this QR in the Android app once, then use Start Clipboard Sync on both devices.")
                         .foregroundStyle(.secondary)
 
                     PairingQRCodeView(token: receiver.pairingToken, deviceId: receiver.deviceId)
@@ -123,131 +113,27 @@ struct ContentView: View {
                             receiver.regeneratePairingToken()
                         }
 
-                        Spacer()
-
-                        Text(receiver.pairingStatus)
-                            .foregroundStyle(.secondary)
-                            .font(.caption)
-                    }
-                }
-
-                Divider()
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Local Discovery")
-                        .font(.headline)
-
-                    LabeledContent("Status") {
-                        Text(receiver.isAdvertising ? "Advertising" : "Not advertising")
-                            .foregroundStyle(receiver.isAdvertising ? .green : .secondary)
-                    }
-
-                    LabeledContent("Service") {
-                        Text(ClipboardReceiver.serviceName)
-                    }
-
-                    LabeledContent("Type") {
-                        Text(ClipboardReceiver.serviceType)
-                            .font(.system(.body, design: .monospaced))
-                    }
-
-                    LabeledContent("Port") {
-                        Text("\(ClipboardReceiver.port)")
-                            .font(.system(.body, design: .monospaced))
-                    }
-
-                    LabeledContent("Device ID") {
-                        Text(receiver.deviceId)
-                            .font(.system(.body, design: .monospaced))
-                            .textSelection(.enabled)
-                    }
-                }
-
-                Divider()
-
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Circle()
-                            .fill(senderStatusColor)
-                            .frame(width: 10, height: 10)
-
-                        Text("Mac to Android")
-                            .font(.headline)
-
-                        Spacer()
-                    }
-
-                    LabeledContent("Clipboard watcher") {
-                        Text(macClipboardWatcher.isRunning ? "Watching" : "Stopped")
-                            .foregroundStyle(macClipboardWatcher.isRunning ? .green : .secondary)
-                    }
-
-                    Text(macClipboardWatcher.status)
-                        .foregroundStyle(.secondary)
-
-                    LabeledContent("Sender") {
-                        Text(androidClipboardSender.status)
-                            .foregroundStyle(senderStatusColor)
-                    }
-
-                    LabeledContent("Android receiver") {
-                        if let endpoint = androidClipboardSender.resolvedEndpoint {
-                            Text("\(endpoint.name) at \(endpoint.displayAddress)")
-                                .textSelection(.enabled)
-                        } else {
-                            Text("Not discovered")
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-
-                    if let deviceId = androidClipboardSender.resolvedEndpoint?.deviceId {
-                        LabeledContent("Android device ID") {
-                            Text(deviceId)
-                                .font(.system(.body, design: .monospaced))
-                                .textSelection(.enabled)
-                        }
-                    }
-
-                    if let pairedDeviceId = androidClipboardSender.pairedDeviceId {
-                        LabeledContent("Paired Android") {
-                            Text(pairedDeviceId)
-                                .font(.system(.body, design: .monospaced))
-                                .textSelection(.enabled)
-                        }
-                    }
-
-                    HStack {
-                        Button("Start Watcher") {
-                            macClipboardWatcher.start()
-                        }
-                        .disabled(macClipboardWatcher.isRunning)
-
-                        Button("Stop Watcher") {
-                            macClipboardWatcher.stop()
-                        }
-                        .disabled(!macClipboardWatcher.isRunning)
-
                         Button("Rediscover Android") {
                             androidClipboardSender.rediscoverAndroidReceiver()
                         }
                         .disabled(androidClipboardSender.isDiscovering)
                     }
+                }
 
-                    if let date = macClipboardWatcher.lastObservedAt {
-                        LabeledContent("Last Mac clipboard") {
-                            Text(date.formatted(date: .abbreviated, time: .standard))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
+                Divider()
 
-                    if let date = androidClipboardSender.lastSentAt {
-                        LabeledContent("Last sent") {
-                            Text(date.formatted(date: .abbreviated, time: .standard))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Recent Activity")
+                        .font(.headline)
 
-                    Text(androidClipboardSender.lastSentText ?? "No Mac clipboard text sent yet.")
+                    Text("From Android: \(receiver.lastReceivedText ?? "No clipboard text received yet.")")
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                        .foregroundStyle(receiver.lastReceivedText == nil ? .secondary : .primary)
+                        .textSelection(.enabled)
+                        .padding(12)
+                        .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
+
+                    Text("To Android: \(androidClipboardSender.lastSentText ?? "No Mac clipboard text sent yet.")")
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                         .foregroundStyle(androidClipboardSender.lastSentText == nil ? .secondary : .primary)
                         .textSelection(.enabled)
@@ -258,28 +144,42 @@ struct ContentView: View {
                 Divider()
 
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Last Received")
-                            .font(.headline)
+                    Text("Application")
+                        .font(.headline)
 
-                        Spacer()
+                    Toggle(
+                        "Show in menu bar",
+                        isOn: Binding(
+                            get: { appSettings.showMenuBarIcon },
+                            set: { appSettings.setShowMenuBarIcon($0) }
+                        )
+                    )
 
-                        if let date = receiver.lastReceivedAt {
-                            Text(date.formatted(date: .abbreviated, time: .standard))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
+                    Toggle(
+                        "Launch at Login",
+                        isOn: Binding(
+                            get: { appSettings.launchAtLoginEnabled },
+                            set: { appSettings.setLaunchAtLoginEnabled($0) }
+                        )
+                    )
 
-                    Text(receiver.lastReceivedText ?? "No clipboard text received yet.")
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
-                        .foregroundStyle(receiver.lastReceivedText == nil ? .secondary : .primary)
-                        .textSelection(.enabled)
-                        .padding(12)
-                        .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
+                    Text(appSettings.launchAtLoginStatus)
+                        .foregroundStyle(.secondary)
                 }
             }
             .padding(24)
         }
-        .frame(minWidth: 560, minHeight: 720)
+        .frame(minWidth: 560, minHeight: 640)
+    }
+
+    private func startClipboardSync() {
+        receiver.startServer()
+        macClipboardWatcher.start()
+        androidClipboardSender.rediscoverAndroidReceiver()
+    }
+
+    private func stopClipboardSync() {
+        receiver.stopServer()
+        macClipboardWatcher.stop()
     }
 }
