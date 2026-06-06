@@ -40,6 +40,9 @@ final class ZevClipRuntime {
                 changeCount: changeCount
             )
         }
+        receiver.onAndroidEndpointSeen = { [weak self] endpoint in
+            self?.androidClipboardSender.updateEndpointSeenFromAndroid(endpoint)
+        }
         receiver.onAndroidNotification = { notification in
             MacNotificationPresenter.shared.show(notification)
         }

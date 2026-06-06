@@ -9,45 +9,12 @@ import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
 import java.net.URL
 
-data class AndroidCallMirrorPayload(
-    val event: String,
-    val callId: String,
-    val title: String,
-    val body: String,
-    val callerName: String?,
-    val callerNumber: String?,
-    val direction: String,
-    val timestampMillis: Long
-) {
-    fun toJsonBytes(): ByteArray {
-        return JSONObject()
-            .put("event", event)
-            .put("callId", callId)
-            .put("title", title)
-            .put("body", body)
-            .put("callerName", callerName)
-            .put("callerNumber", callerNumber)
-            .put("direction", direction)
-            .put("timestampMillis", timestampMillis)
-            .toString()
-            .toByteArray(Charsets.UTF_8)
-    }
-}
-
-data class AndroidCallActionResult(
-    val success: Boolean,
-    val message: String
-)
-
-object AndroidCallMirrorSender {
+object AndroidPresenceSender {
     private const val CONNECT_TIMEOUT_MS = 5_000
     private const val READ_TIMEOUT_MS = 5_000
     private const val MAX_RESPONSE_PREVIEW = 200
 
-    fun sendSavedEndpoint(
-        context: Context,
-        payload: AndroidCallMirrorPayload
-    ): SendResult {
+    fun sendSavedEndpoint(context: Context, androidReceiverPort: Int): SendResult {
         val appContext = context.applicationContext
         val endpoint = ZevClipPreferences.endpoint(appContext)
             ?: return SendResult.Failure("No valid Mac IP and port.")
@@ -56,7 +23,7 @@ object AndroidCallMirrorSender {
             return SendResult.Failure("No pairing token.")
         }
 
-        val firstResult = send(appContext, endpoint.ipAddress, endpoint.port, pairingToken, payload)
+        val firstResult = send(appContext, endpoint.ipAddress, endpoint.port, pairingToken, androidReceiverPort)
         if (firstResult !is SendResult.Failure || !firstResult.retryableWithDiscovery) {
             return firstResult
         }
@@ -83,7 +50,7 @@ object AndroidCallMirrorSender {
             rediscoveredEndpoint.ipAddress,
             rediscoveredEndpoint.port,
             pairingToken,
-            payload
+            androidReceiverPort
         )
     }
 
@@ -92,16 +59,20 @@ object AndroidCallMirrorSender {
         ipAddress: String,
         port: Int,
         pairingToken: String,
-        payload: AndroidCallMirrorPayload
+        androidReceiverPort: Int
     ): SendResult {
         var connection: HttpURLConnection? = null
 
         return try {
-            val activeConnection = URL("http://${ipAddress.toUrlHost()}:$port/android-call")
+            val activeConnection = URL("http://${ipAddress.toUrlHost()}:$port/android-presence")
                 .openConnection() as HttpURLConnection
             connection = activeConnection
 
-            val body = payload.toJsonBytes()
+            val body = JSONObject()
+                .put("receiver", "running")
+                .put("port", androidReceiverPort)
+                .toString()
+                .toByteArray(Charsets.UTF_8)
 
             activeConnection.requestMethod = "POST"
             activeConnection.connectTimeout = CONNECT_TIMEOUT_MS
@@ -109,7 +80,7 @@ object AndroidCallMirrorSender {
             activeConnection.doOutput = true
             activeConnection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
             activeConnection.setRequestProperty("X-ZevClip-Token", pairingToken)
-            AndroidReceiverIdentityHeaders.apply(context, activeConnection)
+            AndroidReceiverIdentityHeaders.apply(context, activeConnection, androidReceiverPort)
             activeConnection.setFixedLengthStreamingMode(body.size)
 
             activeConnection.outputStream.use { output ->
@@ -120,22 +91,22 @@ object AndroidCallMirrorSender {
             val responseBody = readResponseBody(activeConnection, responseCode)
 
             if (responseCode in 200..299) {
-                SendResult.Success("Mirrored Android call.")
+                SendResult.Success("Updated Mac with Android receiver presence.")
             } else if (responseCode == 401) {
-                SendResult.Failure("Pairing token rejected while mirroring Android call.")
+                SendResult.Failure("Pairing token rejected while updating Android presence.")
             } else {
                 val detail = responseBody.takeIf { it.isNotEmpty() }?.let { ": $it" }.orEmpty()
-                SendResult.Failure("Mac call endpoint returned HTTP $responseCode$detail")
+                SendResult.Failure("Mac presence endpoint returned HTTP $responseCode$detail")
             }
         } catch (_: SocketTimeoutException) {
-            SendResult.Failure("Call mirror timed out.", retryableWithDiscovery = true)
+            SendResult.Failure("Android presence update timed out.", retryableWithDiscovery = true)
         } catch (_: ConnectException) {
-            SendResult.Failure("Mac call endpoint refused connection.", retryableWithDiscovery = true)
+            SendResult.Failure("Mac presence endpoint refused connection.", retryableWithDiscovery = true)
         } catch (_: NoRouteToHostException) {
-            SendResult.Failure("Mac call endpoint is unreachable.", retryableWithDiscovery = true)
+            SendResult.Failure("Mac presence endpoint is unreachable.", retryableWithDiscovery = true)
         } catch (error: IOException) {
             SendResult.Failure(
-                "Call mirror network error: ${error.message ?: "request failed"}",
+                "Android presence network error: ${error.message ?: "request failed"}",
                 retryableWithDiscovery = true
             )
         } finally {

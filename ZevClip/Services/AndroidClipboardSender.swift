@@ -34,8 +34,22 @@ final class AndroidClipboardSender: ObservableObject {
     }
 
     func rediscoverAndroidReceiver() {
-        resolvedEndpoint = nil
         discoverAndroidReceiver()
+    }
+
+    func updateEndpointSeenFromAndroid(_ endpoint: AndroidReceiverEndpoint) {
+        if let pairedDeviceId, let endpointDeviceId = endpoint.deviceId, endpointDeviceId != pairedDeviceId {
+            return
+        }
+
+        discovery?.stop()
+        discovery = nil
+        isDiscovering = false
+        resolvedEndpoint = endpoint
+        saveConfirmedAndroidIdentity(endpoint.deviceId)
+        status = "Connected to Android receiver at \(endpoint.displayAddress)."
+        refreshAndroidStatus()
+        sendPendingChangeIfPossible()
     }
 
     func startStatusMonitoring() {

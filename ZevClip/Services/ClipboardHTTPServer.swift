@@ -15,6 +15,7 @@ final class ClipboardHTTPServer {
         onReady: @escaping () -> Void,
         onAdvertisingChanged: @escaping (Bool) -> Void,
         onFailure: @escaping (String) -> Void,
+        onAndroidEndpointSeen: @escaping (AndroidReceiverEndpoint) -> Void,
         onText: @escaping (String) -> Void,
         onAndroidNotification: @escaping (Data) -> Void,
         onAndroidCall: @escaping (Data) -> Void
@@ -29,6 +30,7 @@ final class ClipboardHTTPServer {
                 onReady: onReady,
                 onAdvertisingChanged: onAdvertisingChanged,
                 onFailure: onFailure,
+                onAndroidEndpointSeen: onAndroidEndpointSeen,
                 onText: onText,
                 onAndroidNotification: onAndroidNotification,
                 onAndroidCall: onAndroidCall
@@ -58,6 +60,7 @@ final class ClipboardHTTPServer {
         onReady: @escaping () -> Void,
         onAdvertisingChanged: @escaping (Bool) -> Void,
         onFailure: @escaping (String) -> Void,
+        onAndroidEndpointSeen: @escaping (AndroidReceiverEndpoint) -> Void,
         onText: @escaping (String) -> Void,
         onAndroidNotification: @escaping (Data) -> Void,
         onAndroidCall: @escaping (Data) -> Void
@@ -118,6 +121,7 @@ final class ClipboardHTTPServer {
                 self?.accept(
                     connection,
                     tokenProvider: tokenProvider,
+                    onAndroidEndpointSeen: onAndroidEndpointSeen,
                     onText: onText,
                     onAndroidNotification: onAndroidNotification,
                     onAndroidCall: onAndroidCall
@@ -135,6 +139,7 @@ final class ClipboardHTTPServer {
     private func accept(
         _ connection: NWConnection,
         tokenProvider: @escaping () -> String,
+        onAndroidEndpointSeen: @escaping (AndroidReceiverEndpoint) -> Void,
         onText: @escaping (String) -> Void,
         onAndroidNotification: @escaping (Data) -> Void,
         onAndroidCall: @escaping (Data) -> Void
@@ -144,6 +149,7 @@ final class ClipboardHTTPServer {
             connection: connection,
             queue: queue,
             tokenProvider: tokenProvider,
+            onAndroidEndpointSeen: onAndroidEndpointSeen,
             onText: onText,
             onAndroidNotification: onAndroidNotification,
             onAndroidCall: onAndroidCall,
@@ -172,6 +178,7 @@ private final class HTTPConnection {
     private let connection: NWConnection
     private let queue: DispatchQueue
     private let tokenProvider: () -> String
+    private let onAndroidEndpointSeen: (AndroidReceiverEndpoint) -> Void
     private let onText: (String) -> Void
     private let onAndroidNotification: (Data) -> Void
     private let onAndroidCall: (Data) -> Void
@@ -188,6 +195,7 @@ private final class HTTPConnection {
         connection: NWConnection,
         queue: DispatchQueue,
         tokenProvider: @escaping () -> String,
+        onAndroidEndpointSeen: @escaping (AndroidReceiverEndpoint) -> Void,
         onText: @escaping (String) -> Void,
         onAndroidNotification: @escaping (Data) -> Void,
         onAndroidCall: @escaping (Data) -> Void,
@@ -196,6 +204,7 @@ private final class HTTPConnection {
         self.connection = connection
         self.queue = queue
         self.tokenProvider = tokenProvider
+        self.onAndroidEndpointSeen = onAndroidEndpointSeen
         self.onText = onText
         self.onAndroidNotification = onAndroidNotification
         self.onAndroidCall = onAndroidCall
@@ -274,6 +283,9 @@ private final class HTTPConnection {
         }
 
         let bodyData = buffer.subdata(in: headerEndIndex..<expectedRequestLength)
+        if let endpoint = androidEndpointSeenInRequest() {
+            onAndroidEndpointSeen(endpoint)
+        }
 
         switch requestPath {
         case "/clipboard":
@@ -292,6 +304,9 @@ private final class HTTPConnection {
         case "/android-call":
             onAndroidCall(bodyData)
             respond(status: "200 OK", body: "Android call mirrored.")
+
+        case "/android-presence":
+            respond(status: "200 OK", body: "Android presence updated.")
 
         default:
             respond(status: "404 Not Found", body: "Unknown path.")
@@ -334,8 +349,12 @@ private final class HTTPConnection {
         }
 
         let path = String(requestParts[1])
-        guard path == "/clipboard" || path == "/android-notification" || path == "/android-call" else {
-            respond(status: "404 Not Found", body: "Use /clipboard, /android-notification, or /android-call.")
+        guard path == "/clipboard" ||
+            path == "/android-notification" ||
+            path == "/android-call" ||
+            path == "/android-presence"
+        else {
+            respond(status: "404 Not Found", body: "Use /clipboard, /android-notification, /android-call, or /android-presence.")
             return true
         }
 
@@ -373,7 +392,50 @@ private final class HTTPConnection {
         }
 
         expectedRequestLength = separatorRange.upperBound + contentLength
+        requestHeaders = headers
         return true
+    }
+
+    private var requestHeaders: [String: String] = [:]
+
+    private func androidEndpointSeenInRequest() -> AndroidReceiverEndpoint? {
+        guard
+            let host = peerHost,
+            let portText = requestHeaders["x-zevclip-android-receiver-port"],
+            let port = Int(portText),
+            (1...65535).contains(port)
+        else {
+            return nil
+        }
+
+        let deviceId = requestHeaders["x-zevclip-android-device-id"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .nonEmpty
+        let name = requestHeaders["x-zevclip-android-receiver-name"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .nonEmpty ?? "ZevClip Android Receiver"
+        let batteryPercentage = requestHeaders["x-zevclip-android-battery"]
+            .flatMap(Int.init)
+            .flatMap { (0...100).contains($0) ? $0 : nil }
+
+        return AndroidReceiverEndpoint(
+            name: name,
+            deviceId: deviceId,
+            batteryPercentage: batteryPercentage,
+            host: host,
+            port: port
+        )
+    }
+
+    private var peerHost: String? {
+        guard case .hostPort(let host, _) = connection.endpoint else {
+            return nil
+        }
+
+        return String(describing: host)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .nonEmpty
     }
 
     private func respond(status: String, body: String) {
@@ -404,5 +466,11 @@ private final class HTTPConnection {
         didFinish = true
         connection.stateUpdateHandler = nil
         onClose()
+    }
+}
+
+private extension String {
+    var nonEmpty: String? {
+        isEmpty ? nil : self
     }
 }

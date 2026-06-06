@@ -16,6 +16,7 @@ object ResilientClipboardSender {
         }
 
         val firstResult = ClipboardSender.send(
+            appContext,
             endpoint.ipAddress,
             endpoint.port,
             text,
@@ -56,6 +57,7 @@ object ResilientClipboardSender {
 
         return when (
             val retryResult = ClipboardSender.send(
+                appContext,
                 rediscoveredEndpoint.ipAddress,
                 rediscoveredEndpoint.port,
                 text,

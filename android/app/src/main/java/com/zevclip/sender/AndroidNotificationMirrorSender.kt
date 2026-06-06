@@ -51,7 +51,7 @@ object AndroidNotificationMirrorSender {
             return SendResult.Failure("No pairing token.")
         }
 
-        val firstResult = send(endpoint.ipAddress, endpoint.port, pairingToken, payload)
+        val firstResult = send(appContext, endpoint.ipAddress, endpoint.port, pairingToken, payload)
         if (firstResult !is SendResult.Failure || !firstResult.retryableWithDiscovery) {
             return firstResult
         }
@@ -74,6 +74,7 @@ object AndroidNotificationMirrorSender {
         )
 
         return send(
+            appContext,
             rediscoveredEndpoint.ipAddress,
             rediscoveredEndpoint.port,
             pairingToken,
@@ -82,6 +83,7 @@ object AndroidNotificationMirrorSender {
     }
 
     private fun send(
+        context: Context,
         ipAddress: String,
         port: Int,
         pairingToken: String,
@@ -102,6 +104,7 @@ object AndroidNotificationMirrorSender {
             activeConnection.doOutput = true
             activeConnection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
             activeConnection.setRequestProperty("X-ZevClip-Token", pairingToken)
+            AndroidReceiverIdentityHeaders.apply(context, activeConnection)
             activeConnection.setFixedLengthStreamingMode(body.size)
 
             activeConnection.outputStream.use { output ->

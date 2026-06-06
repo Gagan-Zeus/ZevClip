@@ -2,23 +2,72 @@ package com.zevclip.sender
 
 import android.app.Service
 import android.os.BatteryManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.net.ConnectivityManager
+import android.net.Network
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
+import android.net.wifi.WifiManager
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import java.text.DateFormat
 import java.util.Date
+import kotlin.concurrent.thread
 
 class AndroidClipboardReceiverService : Service() {
     private var receiver: AndroidClipboardHttpReceiver? = null
     private var nsdManager: NsdManager? = null
+    private var connectivityManager: ConnectivityManager? = null
     private var registrationListener: NsdManager.RegistrationListener? = null
+    private var activePort = AndroidClipboardHttpReceiver.DEFAULT_PORT
+    private var networkCallbackRegistered = false
+    private var networkReceiverRegistered = false
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    private val advertisingRefreshRunnable = Runnable {
+        refreshAdvertising("network changed")
+    }
+
+    private val periodicAdvertisingRefreshRunnable = object : Runnable {
+        override fun run() {
+            refreshAdvertising("periodic discovery refresh")
+            mainHandler.postDelayed(this, ADVERTISING_HEALTH_REFRESH_MS)
+        }
+    }
+
+    private val networkCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) {
+            scheduleAdvertisingRefresh("network available")
+        }
+
+        override fun onLost(network: Network) {
+            scheduleAdvertisingRefresh("network lost")
+        }
+
+        override fun onCapabilitiesChanged(
+            network: Network,
+            networkCapabilities: android.net.NetworkCapabilities
+        ) {
+            scheduleAdvertisingRefresh("network capabilities changed")
+        }
+    }
+
+    private val networkChangeReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            scheduleAdvertisingRefresh(intent?.action ?: "network broadcast")
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
         nsdManager = getSystemService(NsdManager::class.java)
+        connectivityManager = getSystemService(ConnectivityManager::class.java)
+        registerNetworkWatchers()
         Log.i(TAG, "Android clipboard receiver service created")
     }
 
@@ -38,6 +87,9 @@ class AndroidClipboardReceiverService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        unregisterNetworkWatchers()
+        mainHandler.removeCallbacks(advertisingRefreshRunnable)
+        mainHandler.removeCallbacks(periodicAdvertisingRefreshRunnable)
         stopReceiver("Stopped because the service was destroyed.")
         Log.i(TAG, "Android clipboard receiver service destroyed")
         super.onDestroy()
@@ -45,7 +97,8 @@ class AndroidClipboardReceiverService : Service() {
 
     private fun startReceiver() {
         if (receiver != null) {
-            Log.d(TAG, "Android clipboard receiver already running")
+            Log.d(TAG, "Android clipboard receiver already running; refreshing discovery advertising")
+            scheduleAdvertisingRefresh("start requested while already running")
             return
         }
 
@@ -67,7 +120,10 @@ class AndroidClipboardReceiverService : Service() {
                 )
                 ZevClipStatusNotification.update(this)
                 Log.i(TAG, "Android clipboard receiver listening on port $readyPort")
+                activePort = readyPort
                 startAdvertising(readyPort)
+                schedulePeriodicAdvertisingRefresh()
+                sendPresenceToMac("receiver ready")
             },
             onFailure = { message ->
                 stopAdvertising()
@@ -104,6 +160,8 @@ class AndroidClipboardReceiverService : Service() {
     }
 
     private fun stopReceiver(status: String) {
+        mainHandler.removeCallbacks(advertisingRefreshRunnable)
+        mainHandler.removeCallbacks(periodicAdvertisingRefreshRunnable)
         stopAdvertising()
         receiver?.stop()
         receiver = null
@@ -117,7 +175,9 @@ class AndroidClipboardReceiverService : Service() {
 
     private fun startAdvertising(port: Int) {
         stopAdvertising()
+        activePort = port
 
+        nsdManager = getSystemService(NsdManager::class.java)
         val manager = nsdManager ?: run {
             ZevClipPreferences.setAndroidReceiverAdvertising(
                 this,
@@ -204,6 +264,116 @@ class AndroidClipboardReceiverService : Service() {
         }
     }
 
+    private fun scheduleAdvertisingRefresh(reason: String) {
+        if (receiver == null || !ZevClipPreferences.isClipboardSyncEnabled(this)) {
+            return
+        }
+
+        Log.d(TAG, "Scheduling Android receiver discovery refresh: $reason")
+        mainHandler.removeCallbacks(advertisingRefreshRunnable)
+        mainHandler.postDelayed(advertisingRefreshRunnable, NETWORK_REFRESH_DELAY_MS)
+    }
+
+    private fun refreshAdvertising(reason: String) {
+        if (receiver == null || !ZevClipPreferences.isClipboardSyncEnabled(this)) {
+            return
+        }
+
+        Log.i(TAG, "Refreshing Android receiver discovery advertising: $reason")
+        ZevClipPreferences.setAndroidReceiverAdvertising(
+            this,
+            isAdvertising = false,
+            status = "Refreshing Android receiver discovery advertising…"
+        )
+        ZevClipStatusNotification.update(this)
+
+        stopAdvertising()
+        mainHandler.postDelayed(
+            {
+                if (receiver != null && ZevClipPreferences.isClipboardSyncEnabled(this)) {
+                    startAdvertising(activePort)
+                    sendPresenceToMac("discovery refresh")
+                }
+            },
+            NSD_REREGISTER_DELAY_MS
+        )
+    }
+
+    private fun sendPresenceToMac(reason: String, attempt: Int = 1) {
+        if (receiver == null || !ZevClipPreferences.isClipboardSyncEnabled(this)) {
+            return
+        }
+
+        thread(name = "ZevClipAndroidPresence") {
+            when (val result = AndroidPresenceSender.sendSavedEndpoint(applicationContext, activePort)) {
+                is SendResult.Success -> Log.i(TAG, "${result.message} ($reason)")
+                is SendResult.Failure -> {
+                    Log.w(TAG, "Android presence update failed ($reason, attempt $attempt): ${result.message}")
+                    if (attempt < PRESENCE_UPDATE_ATTEMPTS) {
+                        mainHandler.postDelayed(
+                            { sendPresenceToMac(reason, attempt + 1) },
+                            PRESENCE_RETRY_DELAY_MS
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun schedulePeriodicAdvertisingRefresh() {
+        mainHandler.removeCallbacks(periodicAdvertisingRefreshRunnable)
+        mainHandler.postDelayed(periodicAdvertisingRefreshRunnable, ADVERTISING_HEALTH_REFRESH_MS)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun registerNetworkWatchers() {
+        val manager = connectivityManager ?: return
+
+        if (!networkCallbackRegistered) {
+            try {
+                manager.registerDefaultNetworkCallback(networkCallback)
+                networkCallbackRegistered = true
+            } catch (error: RuntimeException) {
+                Log.w(TAG, "Could not register Android receiver network callback", error)
+            }
+        }
+
+        if (!networkReceiverRegistered) {
+            val filter = IntentFilter().apply {
+                addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION)
+                addAction(WifiManager.WIFI_STATE_CHANGED_ACTION)
+                addAction(ConnectivityManager.CONNECTIVITY_ACTION)
+            }
+
+            try {
+                registerReceiver(networkChangeReceiver, filter)
+                networkReceiverRegistered = true
+            } catch (error: RuntimeException) {
+                Log.w(TAG, "Could not register Android receiver network receiver", error)
+            }
+        }
+    }
+
+    private fun unregisterNetworkWatchers() {
+        if (networkCallbackRegistered) {
+            try {
+                connectivityManager?.unregisterNetworkCallback(networkCallback)
+            } catch (error: RuntimeException) {
+                Log.w(TAG, "Could not unregister Android receiver network callback", error)
+            }
+            networkCallbackRegistered = false
+        }
+
+        if (networkReceiverRegistered) {
+            try {
+                unregisterReceiver(networkChangeReceiver)
+            } catch (error: RuntimeException) {
+                Log.w(TAG, "Could not unregister Android receiver network receiver", error)
+            }
+            networkReceiverRegistered = false
+        }
+    }
+
     private fun stopAdvertising() {
         val listener = registrationListener ?: return
         registrationListener = null
@@ -248,6 +418,11 @@ class AndroidClipboardReceiverService : Service() {
         private const val TAG = "ZevClipAndroidReceiver"
         private const val TXT_DEVICE_ID = "deviceId"
         private const val TXT_BATTERY_PERCENTAGE = "battery"
+        private const val NETWORK_REFRESH_DELAY_MS = 2_500L
+        private const val NSD_REREGISTER_DELAY_MS = 1_200L
+        private const val ADVERTISING_HEALTH_REFRESH_MS = 60_000L
+        private const val PRESENCE_RETRY_DELAY_MS = 5_000L
+        private const val PRESENCE_UPDATE_ATTEMPTS = 4
 
         fun start(context: Context) {
             context.startService(Intent(context, AndroidClipboardReceiverService::class.java).apply {

@@ -41,6 +41,7 @@ final class ClipboardReceiver: ObservableObject {
     @Published private(set) var lastMirroredCallAt: Date?
 
     var onPasteboardWrite: ((String, Int) -> Void)?
+    var onAndroidEndpointSeen: ((AndroidReceiverEndpoint) -> Void)?
     var onAndroidNotification: ((AndroidMirroredNotification) -> Void)?
     var onAndroidCall: ((AndroidMirroredCall) -> Void)?
 
@@ -92,6 +93,12 @@ final class ClipboardReceiver: ObservableObject {
                     self?.status = .failed(message)
                     self?.isAdvertising = false
                     self?.detailMessage = message
+                }
+            },
+            onAndroidEndpointSeen: { [weak self] endpoint in
+                Task { @MainActor in
+                    self?.detailMessage = "Updated Android receiver at \(endpoint.displayAddress)."
+                    self?.onAndroidEndpointSeen?(endpoint)
                 }
             },
             onText: { [weak self] text in

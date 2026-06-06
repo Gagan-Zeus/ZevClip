@@ -1,5 +1,6 @@
 package com.zevclip.sender
 
+import android.content.Context
 import java.io.IOException
 import java.net.ConnectException
 import java.net.HttpURLConnection
@@ -20,7 +21,7 @@ object ClipboardSender {
     private const val READ_TIMEOUT_MS = 5_000
     private const val MAX_RESPONSE_PREVIEW = 200
 
-    fun send(ipAddress: String, port: Int, text: String, pairingToken: String): SendResult {
+    fun send(context: Context, ipAddress: String, port: Int, text: String, pairingToken: String): SendResult {
         var connection: HttpURLConnection? = null
 
         return try {
@@ -36,6 +37,7 @@ object ClipboardSender {
             activeConnection.doOutput = true
             activeConnection.setRequestProperty("Content-Type", "text/plain; charset=utf-8")
             activeConnection.setRequestProperty("X-ZevClip-Token", pairingToken)
+            AndroidReceiverIdentityHeaders.apply(context, activeConnection)
             activeConnection.setFixedLengthStreamingMode(body.size)
 
             activeConnection.outputStream.use { output ->
