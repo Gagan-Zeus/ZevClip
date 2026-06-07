@@ -1,15 +1,4 @@
-# ZevClip macOS Receiver
-
-ZevClip is a native SwiftUI menu bar app that receives clipboard text from
-Android over the local network with `POST /clipboard`. While the receiver is
-running, it advertises `ZevClip Mac Receiver` as `_zevclip._tcp` using Bonjour
-so the Android app can find it without manual IP entry.
-
-The receiver also requires a shared pairing token. Android sends this token in
-the `X-ZevClip-Token` header on every clipboard request; missing or wrong
-tokens are rejected with HTTP `401`.
-
-## Run# ZevClip
+# ZevClip
 
 Local-only Android ↔ Mac clipboard sync, notification mirroring, and call controls.
 
@@ -66,7 +55,7 @@ Download the latest builds from GitHub Releases.
 Expected release files:
 
 - `ZevClip-macOS-<version>.zip`
-- `ZevClip-Android-<version>-signed.apk`
+- `ZevClip-Android-<version>.apk`
 
 ## Requirements
 
