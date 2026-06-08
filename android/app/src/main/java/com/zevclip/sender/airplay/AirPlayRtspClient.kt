@@ -12,7 +12,7 @@ class AirPlayRtspClient(
     private val connectTimeoutMs: Int = DEFAULT_TIMEOUT_MS,
     private val readTimeoutMs: Int = DEFAULT_TIMEOUT_MS,
     private val socketFactory: () -> Socket = { Socket() }
-) : Closeable {
+) : Closeable, AirPlayRtspTransport {
     private var socket: Socket? = null
     private var cseq = 1
 
@@ -47,7 +47,9 @@ class AirPlayRtspClient(
             headers = mapOf(
                 "User-Agent" to USER_AGENT,
                 "X-Apple-HKP" to "3"
-            )
+            ),
+            body = ByteArray(0),
+            contentType = null
         )
     }
 
@@ -55,16 +57,18 @@ class AirPlayRtspClient(
         return request(
             method = "OPTIONS",
             uri = "*",
-            headers = mapOf("User-Agent" to USER_AGENT)
+            headers = mapOf("User-Agent" to USER_AGENT),
+            body = ByteArray(0),
+            contentType = null
         )
     }
 
-    fun request(
+    override fun request(
         method: String,
         uri: String,
-        headers: Map<String, String> = emptyMap(),
-        body: ByteArray = ByteArray(0),
-        contentType: String? = null
+        headers: Map<String, String>,
+        body: ByteArray,
+        contentType: String?
     ): Response {
         require(method.isNotBlank()) { "RTSP method must not be blank." }
         require(uri.isNotBlank()) { "RTSP URI must not be blank." }
