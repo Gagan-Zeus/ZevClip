@@ -31,6 +31,26 @@ object CryptoPrimitives {
         return ByteArray(size).also(secureRandom::nextBytes)
     }
 
+    fun concat(vararg chunks: ByteArray): ByteArray {
+        val output = ByteArray(chunks.sumOf { it.size })
+        var offset = 0
+        chunks.forEach { chunk ->
+            chunk.copyInto(output, offset)
+            offset += chunk.size
+        }
+        return output
+    }
+
+    fun nonce12(tag: String): ByteArray {
+        val tagBytes = tag.toByteArray(Charsets.US_ASCII)
+        require(tagBytes.size <= CHACHA20_POLY1305_NONCE_SIZE) {
+            "AirPlay nonce tag must be at most 12 ASCII bytes."
+        }
+        return ByteArray(CHACHA20_POLY1305_NONCE_SIZE).also { nonce ->
+            tagBytes.copyInto(nonce, CHACHA20_POLY1305_NONCE_SIZE - tagBytes.size)
+        }
+    }
+
     fun generateX25519KeyPair(): X25519KeyPair {
         val privateKey = X25519PrivateKeyParameters(secureRandom)
         return X25519KeyPair(
