@@ -31,6 +31,13 @@
     <string name="calls_needed">Calls: Permission needed</string>
     <string name="pair_mac_title">Pair Mac</string>
     <string name="pair_mac_description">Scan the QR from the Mac app once. Use Discover if the network changes.</string>
+    <string name="airplay_title">Experimental AirPlay</string>
+    <string name="airplay_description">Use this to check whether the Mac native AirPlay Receiver is visible from Android. Turn on AirPlay Receiver in macOS settings first.</string>
+    <string name="airplay_password_label">AirPlay password</string>
+    <string name="airplay_password_hint">Only needed if Mac requires one</string>
+    <string name="find_airplay_mac">Find Mac AirPlay</string>
+    <string name="test_airplay_audio_session">Test Audio Session</string>
+    <string name="airplay_status_idle">AirPlay test has not run yet.</string>
     <string name="manual_setup_title">Manual setup</string>
     <string name="manual_setup_description">Only use this if QR pairing cannot reach the Mac.</string>
     <string name="mac_pairing_saved">Mac pairing saved.</string>

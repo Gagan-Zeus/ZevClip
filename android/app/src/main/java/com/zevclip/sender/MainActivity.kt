@@ -55,8 +55,13 @@ class MainActivity : Activity() {
     private lateinit var accessibilityStatusText: TextView
     private lateinit var notificationMirrorStatusText: TextView
     private lateinit var callMirrorStatusText: TextView
+    private lateinit var airPlayPasswordInput: EditText
+    private lateinit var airPlayStatusText: TextView
+    private lateinit var airPlayDiscoverButton: Button
+    private lateinit var airPlaySessionButton: Button
     private lateinit var lastAutoStatusText: TextView
     private lateinit var discoveryManager: MacDiscoveryManager
+    private lateinit var airPlayDiscoveryManager: AirPlayTargetDiscoveryManager
     private lateinit var colors: DynamicPalette
     private var showingSettings = false
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -114,6 +119,32 @@ class MainActivity : Activity() {
                 }
             }
         )
+        airPlayDiscoveryManager = AirPlayTargetDiscoveryManager(
+            context = this,
+            onStatusChanged = { status, isDiscovering ->
+                if (!isDestroyed) {
+                    if (::airPlayDiscoverButton.isInitialized) {
+                        airPlayDiscoverButton.isEnabled = !isDiscovering
+                    }
+                    if (::airPlaySessionButton.isInitialized) {
+                        airPlaySessionButton.isEnabled = !isDiscovering
+                    }
+                    if (::airPlayStatusText.isInitialized) {
+                        airPlayStatusText.setTextColor(
+                            if (
+                                status.contains("accepted", ignoreCase = true) ||
+                                status.contains("answered", ignoreCase = true)
+                            ) {
+                                colors.success
+                            } else {
+                                colors.muted
+                            }
+                        )
+                        airPlayStatusText.text = status
+                    }
+                }
+            }
+        )
         showHomePage()
         requestNotificationPermissionIfNeeded()
     }
@@ -164,6 +195,9 @@ class MainActivity : Activity() {
         if (::pairingTokenInput.isInitialized) {
             ZevClipPreferences.savePairingToken(this, pairingTokenInput.text.toString())
         }
+        if (::airPlayPasswordInput.isInitialized) {
+            ZevClipPreferences.saveAirPlayPassword(this, airPlayPasswordInput.text.toString())
+        }
         super.onPause()
     }
 
@@ -185,6 +219,7 @@ class MainActivity : Activity() {
     override fun onDestroy() {
         mainHandler.removeCallbacksAndMessages(null)
         discoveryManager.stop()
+        airPlayDiscoveryManager.stop()
         super.onDestroy()
     }
 
@@ -270,6 +305,40 @@ class MainActivity : Activity() {
                 setPadding(0, dp(12), 0, 0)
             }
             addView(discoveryStatusText, matchWidth())
+        }, matchWidth(topMargin = 16))
+
+        content.addView(card(colors.surface).apply {
+            addView(cardTitle(getString(R.string.airplay_title)))
+            addView(textView(getString(R.string.airplay_description), 14f, colors.muted).apply {
+                setPadding(0, dp(6), 0, dp(14))
+            })
+
+            addView(fieldLabel(R.string.airplay_password_label))
+            airPlayPasswordInput = styledEditText().apply {
+                hint = getString(R.string.airplay_password_hint)
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+                isSingleLine = true
+                imeOptions = EditorInfo.IME_ACTION_DONE
+                setText(preferences.getString(ZevClipPreferences.KEY_AIRPLAY_PASSWORD, ""))
+            }
+            addView(airPlayPasswordInput, matchWidth(topMargin = 6))
+
+            airPlayDiscoverButton = tonalButton(getString(R.string.find_airplay_mac)) {
+                ZevClipPreferences.saveAirPlayPassword(this@MainActivity, airPlayPasswordInput.text.toString())
+                airPlayDiscoveryManager.discover(airPlayPasswordInput.text.toString())
+            }
+            addView(airPlayDiscoverButton, matchWidth(topMargin = 10))
+
+            airPlaySessionButton = quietButton(getString(R.string.test_airplay_audio_session)) {
+                ZevClipPreferences.saveAirPlayPassword(this@MainActivity, airPlayPasswordInput.text.toString())
+                airPlayDiscoveryManager.testAudioSession(airPlayPasswordInput.text.toString())
+            }
+            addView(airPlaySessionButton, matchWidth(topMargin = 10))
+
+            airPlayStatusText = textView(getString(R.string.airplay_status_idle), 14f, colors.muted).apply {
+                setPadding(0, dp(12), 0, 0)
+            }
+            addView(airPlayStatusText, matchWidth())
         }, matchWidth(topMargin = 16))
 
         content.addView(card(colors.surface).apply {

@@ -31,6 +31,7 @@ object ZevClipPreferences {
     const val KEY_MAC_BATTERY_CHARGING = "mac_battery_charging"
     const val KEY_MAC_BATTERY_AVAILABLE = "mac_battery_available"
     const val KEY_MAC_BATTERY_LAST_SEEN_AT = "mac_battery_last_seen_at"
+    const val KEY_AIRPLAY_PASSWORD = "airplay_password"
 
     private const val KEY_ANDROID_DEVICE_ID = "android_device_id"
     private const val KEY_LAST_TILE_SUBTITLE = "last_tile_subtitle"
@@ -272,6 +273,16 @@ object ZevClipPreferences {
         }
 
         editor.apply()
+    }
+
+    fun airPlayPassword(context: Context): String {
+        return preferences(context).getString(KEY_AIRPLAY_PASSWORD, "").orEmpty()
+    }
+
+    fun saveAirPlayPassword(context: Context, password: String) {
+        preferences(context).edit()
+            .putString(KEY_AIRPLAY_PASSWORD, password)
+            .apply()
     }
 
     fun discoveryStatus(context: Context): String {
