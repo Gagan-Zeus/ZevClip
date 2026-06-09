@@ -22,6 +22,18 @@ class RaopTestToneClient(
         fun readPacket(buffer: ByteArray): Int
     }
 
+    data class NowPlayingMetadata(
+        val title: String?,
+        val artist: String?,
+        val album: String?
+    ) {
+        fun isEmpty(): Boolean = title.isNullOrBlank() && artist.isNullOrBlank() && album.isNullOrBlank()
+
+        fun signature(): String {
+            return listOf(title.orEmpty(), artist.orEmpty(), album.orEmpty()).joinToString("\u0001")
+        }
+    }
+
     data class Result(
         val message: String,
         val packets: Int
@@ -56,7 +68,8 @@ class RaopTestToneClient(
 
     fun playPcmPackets(
         source: PcmPacketSource,
-        status: (String) -> Unit = {}
+        status: (String) -> Unit = {},
+        metadataProvider: (() -> NowPlayingMetadata?)? = null
     ): Result {
         require(password.isNotBlank()) { "AirPlay password is empty." }
 
@@ -109,6 +122,13 @@ class RaopTestToneClient(
             record()
             flush(rtspSession, initialSequence, clock.rtpTime32)
             setVolume()
+            sendMetadataIfChanged(
+                session = rtspSession,
+                sequenceNumber = initialSequence,
+                rtpTimestamp = clock.rtpTime32,
+                metadataProvider = metadataProvider,
+                lastSignature = null
+            )
             startKeepAlive()
 
             audioSender = AirPlayUdpPacketSender(target.host, serverPort)
@@ -118,7 +138,9 @@ class RaopTestToneClient(
                 sink = audioSender,
                 clock = clock,
                 initialSequence = initialSequence,
-                ssrc = sessionId.toInt()
+                ssrc = sessionId.toInt(),
+                rtspSession = rtspSession,
+                metadataProvider = metadataProvider
             )
             Result("AirPlay audio stream ended ($packets packets).", packets)
         } finally {
@@ -219,7 +241,32 @@ class RaopTestToneClient(
             method = "SET_PARAMETER",
             uri = sessionUri,
             headers = mapOf("Content-Type" to "text/parameters"),
-            body = "volume: -18.000000\r\n".toByteArray(Charsets.US_ASCII),
+            body = "volume: 0.000000\r\n".toByteArray(Charsets.US_ASCII),
+            useDigest = digestChallenge != null
+        )
+    }
+
+    private fun setMetadata(
+        session: String,
+        sequenceNumber: Int,
+        rtpTimestamp: Int,
+        metadata: NowPlayingMetadata
+    ) {
+        if (session.isBlank() || metadata.isEmpty()) return
+        request(
+            method = "SET_PARAMETER",
+            uri = sessionUri,
+            headers = mapOf(
+                "Content-Type" to "application/x-dmap-tagged",
+                "Session" to session,
+                "RTP-Info" to "seq=${sequenceNumber and 0xFFFF};rtptime=${rtpTimestamp.toUIntString()}"
+            ),
+            body = dmapContainer(
+                "mlit",
+                dmapString("minm", metadata.title) +
+                    dmapString("asal", metadata.album) +
+                    dmapString("asar", metadata.artist)
+            ),
             useDigest = digestChallenge != null
         )
     }
@@ -252,14 +299,29 @@ class RaopTestToneClient(
         sink: AirPlayPacketSink,
         clock: AirPlayClock,
         initialSequence: Int,
-        ssrc: Int
+        ssrc: Int,
+        rtspSession: String,
+        metadataProvider: (() -> NowPlayingMetadata?)?
     ): Int {
         val framesPerPacket = FRAMES_PER_PACKET
         val pcm = ByteArray(framesPerPacket * 2 * 2)
         var sequenceNumber = initialSequence
         var packetCount = 0
+        var lastMetadataCheckAt = 0L
+        var lastMetadataSignature: String? = null
 
         while (true) {
+            val now = System.currentTimeMillis()
+            if (metadataProvider != null && now - lastMetadataCheckAt >= METADATA_REFRESH_INTERVAL_MS) {
+                lastMetadataCheckAt = now
+                lastMetadataSignature = sendMetadataIfChanged(
+                    session = rtspSession,
+                    sequenceNumber = sequenceNumber,
+                    rtpTimestamp = clock.rtpTime32,
+                    metadataProvider = metadataProvider,
+                    lastSignature = lastMetadataSignature
+                )
+            }
             val frameCount = source.readPacket(pcm)
             if (frameCount < 0) break
             if (frameCount == 0) continue
@@ -277,6 +339,23 @@ class RaopTestToneClient(
         }
 
         return packetCount
+    }
+
+    private fun sendMetadataIfChanged(
+        session: String,
+        sequenceNumber: Int,
+        rtpTimestamp: Int,
+        metadataProvider: (() -> NowPlayingMetadata?)?,
+        lastSignature: String?
+    ): String? {
+        val metadata = metadataProvider?.invoke() ?: return lastSignature
+        if (metadata.isEmpty()) return lastSignature
+        val signature = metadata.signature()
+        if (signature == lastSignature) return lastSignature
+        runCatching {
+            setMetadata(session, sequenceNumber, rtpTimestamp, metadata)
+        }
+        return signature
     }
 
     @Synchronized
@@ -455,6 +534,27 @@ class RaopTestToneClient(
         return (toLong() and 0xFFFFFFFFL).toString()
     }
 
+    private fun dmapString(name: String, value: String?): ByteArray {
+        if (value.isNullOrBlank()) return ByteArray(0)
+        return dmapTag(name, value.toByteArray(Charsets.UTF_8))
+    }
+
+    private fun dmapContainer(name: String, value: ByteArray): ByteArray = dmapTag(name, value)
+
+    private fun dmapTag(name: String, value: ByteArray): ByteArray {
+        require(name.length == 4) { "DMAP tag names must be four characters." }
+        return name.toByteArray(Charsets.US_ASCII) + int32(value.size) + value
+    }
+
+    private fun int32(value: Int): ByteArray {
+        return byteArrayOf(
+            ((value ushr 24) and 0xFF).toByte(),
+            ((value ushr 16) and 0xFF).toByte(),
+            ((value ushr 8) and 0xFF).toByte(),
+            (value and 0xFF).toByte()
+        )
+    }
+
     private fun addressFamily(host: String): String = if (host.contains(':')) "IP6" else "IP4"
 
     private fun rtspUrl(localHost: String, sessionId: Long): String {
@@ -485,6 +585,7 @@ class RaopTestToneClient(
         const val FRAMES_PER_PACKET = 352
         const val DEFAULT_TIMEOUT_MS = 5_000
         const val KEEP_ALIVE_INTERVAL_MS = 20_000L
+        const val METADATA_REFRESH_INTERVAL_MS = 5_000L
         const val LOW_LATENCY_FRAMES = 11_025L
         const val USER_AGENT = "AirTunes/366.0"
         const val DIGEST_USERNAME = "pyatv"

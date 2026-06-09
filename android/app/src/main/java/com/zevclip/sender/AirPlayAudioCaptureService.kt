@@ -1,10 +1,7 @@
 package com.zevclip.sender
 
 import android.Manifest
-import android.app.Notification
-import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -50,8 +47,12 @@ class AirPlayAudioCaptureService : Service() {
 
     private fun startCapture(intent: Intent) {
         if (running.get()) return
-        createNotificationChannel()
-        startForeground(NOTIFICATION_ID, buildNotification(getString(R.string.airplay_streaming_starting)))
+        cleanupLegacyNotification()
+        ZevClipStatusNotification.ensureChannel(this)
+        startForeground(
+            ZevClipStatusNotification.NOTIFICATION_ID,
+            ZevClipStatusNotification.build(this)
+        )
 
         val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 0)
         val resultData = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -106,9 +107,11 @@ class AirPlayAudioCaptureService : Service() {
                     name = "Paired Mac AirPlay"
                 )
                 RaopTestToneClient(target, passcode).use { client ->
-                    client.playPcmPackets(AudioRecordPacketSource(record, running)) { status ->
-                        updateStatus(status)
-                    }
+                    client.playPcmPackets(
+                        source = AudioRecordPacketSource(record, running),
+                        status = { status -> updateStatus(status) },
+                        metadataProvider = { AndroidNowPlayingReader.current(this) }
+                    )
                 }
             }.onSuccess {
                 updateStatus(getString(R.string.airplay_streaming_stopped))
@@ -158,61 +161,33 @@ class AirPlayAudioCaptureService : Service() {
         runCatching { mediaProjection?.stop() }
         mediaProjection = null
         ZevClipPreferences.setAirPlayStreaming(this, false)
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopForegroundKeepingStatus()
     }
 
     private fun finishWithStatus(status: String) {
         updateStatus(status)
         ZevClipPreferences.setAirPlayStreaming(this, false)
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopForegroundKeepingStatus()
         stopSelf()
     }
 
     private fun updateStatus(status: String) {
         ZevClipPreferences.setAirPlayTestStatus(this, status)
-        getSystemService(NotificationManager::class.java)
-            .notify(NOTIFICATION_ID, buildNotification(status))
+        ZevClipStatusNotification.update(this)
     }
 
-    private fun buildNotification(status: String): Notification {
-        val stopIntent = PendingIntent.getService(
-            this,
-            0,
-            Intent(this, AirPlayAudioCaptureService::class.java).setAction(ACTION_STOP),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-        val contentIntent = PendingIntent.getActivity(
-            this,
-            1,
-            Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            },
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-        return Notification.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_sync_clipboard)
-            .setContentTitle(getString(R.string.airplay_notification_title))
-            .setContentText(status)
-            .setStyle(Notification.BigTextStyle().bigText(status))
-            .setContentIntent(contentIntent)
-            .addAction(0, getString(R.string.stop_airplay_audio), stopIntent)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setShowWhen(false)
-            .build()
-    }
-
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "ZevClip AirPlay",
-            NotificationManager.IMPORTANCE_LOW
-        ).apply {
-            description = "Streams Android audio to AirPlay receivers."
-            setShowBadge(false)
+    private fun stopForegroundKeepingStatus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_DETACH)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(false)
         }
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        ZevClipStatusNotification.update(this)
+    }
+
+    private fun cleanupLegacyNotification() {
+        getSystemService(NotificationManager::class.java).cancel(LEGACY_AIRPLAY_NOTIFICATION_ID)
     }
 
     private class AudioRecordPacketSource(
@@ -257,8 +232,7 @@ class AirPlayAudioCaptureService : Service() {
         private const val ACTION_STOP = "com.zevclip.sender.airplay.STOP"
         private const val EXTRA_RESULT_CODE = "result_code"
         private const val EXTRA_RESULT_DATA = "result_data"
-        private const val CHANNEL_ID = "zevclip_airplay"
-        private const val NOTIFICATION_ID = 2042
+        private const val LEGACY_AIRPLAY_NOTIFICATION_ID = 2042
         private const val SAMPLE_RATE = 44_100
         private const val FRAMES_PER_PACKET = 352
         private const val BYTES_PER_FRAME = 4
@@ -278,8 +252,12 @@ class AirPlayAudioCaptureService : Service() {
 
         fun stop(context: Context) {
             context.startService(
-                Intent(context, AirPlayAudioCaptureService::class.java).setAction(ACTION_STOP)
+                stopIntent(context)
             )
+        }
+
+        fun stopIntent(context: Context): Intent {
+            return Intent(context, AirPlayAudioCaptureService::class.java).setAction(ACTION_STOP)
         }
     }
 }
