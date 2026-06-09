@@ -18,6 +18,10 @@ class RaopTestToneClient(
     private val readTimeoutMs: Int = DEFAULT_TIMEOUT_MS,
     private val socketFactory: () -> Socket = { Socket() }
 ) : Closeable {
+    interface PcmPacketSource : Closeable {
+        fun readPacket(buffer: ByteArray): Int
+    }
+
     data class Result(
         val message: String,
         val packets: Int
@@ -44,6 +48,13 @@ class RaopTestToneClient(
     private lateinit var sessionUri: String
 
     fun playTestTone(status: (String) -> Unit = {}): Result {
+        return playPcmPackets(TestTonePacketSource(), status)
+    }
+
+    fun playPcmPackets(
+        source: PcmPacketSource,
+        status: (String) -> Unit = {}
+    ): Result {
         require(password.isNotBlank()) { "AirPlay password is empty." }
 
         val timingServer = AirPlayTimingServer()
@@ -94,15 +105,17 @@ class RaopTestToneClient(
             setVolume()
 
             audioSender = AirPlayUdpPacketSender(target.host, serverPort)
-            status("Playing AirPlay test tone...")
-            val packets = streamTone(
+            status("Streaming AirPlay audio...")
+            val packets = streamPcmPackets(
+                source = source,
                 sink = audioSender,
                 clock = clock,
                 initialSequence = initialSequence,
                 ssrc = sessionId.toInt()
             )
-            Result("AirPlay test tone sent through RAOP ($packets packets).", packets)
+            Result("AirPlay audio stream ended ($packets packets).", packets)
         } finally {
+            runCatching { source.close() }
             runCatching { syncSender?.stop() }
             runCatching { audioSender?.close() }
             runCatching { controlSocket?.close() }
@@ -204,39 +217,33 @@ class RaopTestToneClient(
         )
     }
 
-    private fun streamTone(
+    private fun streamPcmPackets(
+        source: PcmPacketSource,
         sink: AirPlayPacketSink,
         clock: AirPlayClock,
         initialSequence: Int,
-        ssrc: Int,
-        durationMs: Int = AirPlayTestTone.DEFAULT_DURATION_MS
+        ssrc: Int
     ): Int {
-        val sampleRate = AirPlayTestTone.DEFAULT_SAMPLE_RATE
         val framesPerPacket = FRAMES_PER_PACKET
-        val totalFrames = sampleRate * durationMs / 1_000
-        val packetCount = ceil(totalFrames.toDouble() / framesPerPacket.toDouble()).toInt()
+        val pcm = ByteArray(framesPerPacket * 2 * 2)
         var sequenceNumber = initialSequence
+        var packetCount = 0
 
-        for (packetIndex in 0 until packetCount) {
-            val startFrame = packetIndex * framesPerPacket
-            val frameCount = minOf(framesPerPacket, totalFrames - startFrame)
-            val pcm = AirPlayTestTone.pcm16StereoChunk(
-                sampleRate = sampleRate,
-                startFrame = startFrame,
-                frameCount = frameCount
-            ).paddedBigEndian(frameCount, framesPerPacket)
+        while (true) {
+            val frameCount = source.readPacket(pcm)
+            if (frameCount < 0) break
+            if (frameCount == 0) continue
+            val payload = pcm.paddedBigEndian(frameCount, framesPerPacket)
             val packet = AirPlayRtpPacket.header(
                 sequenceNumber = sequenceNumber,
                 timestamp = clock.rtpTime32,
                 ssrc = ssrc,
-                marker = packetIndex == 0
-            ) + pcm
+                marker = packetCount == 0
+            ) + payload
             sink.send(packet)
             sequenceNumber = (sequenceNumber + 1) and 0xFFFF
             clock.advance(framesPerPacket)
-
-            val sleepMs = framesPerPacket * 1_000L / sampleRate
-            if (sleepMs > 0) Thread.sleep(sleepMs)
+            packetCount++
         }
 
         return packetCount
@@ -373,6 +380,29 @@ class RaopTestToneClient(
         val realm = parameter("realm") ?: return null
         val nonce = parameter("nonce") ?: return null
         return DigestChallenge(realm, nonce)
+    }
+
+    private inner class TestTonePacketSource : PcmPacketSource {
+        private val totalFrames = AirPlayTestTone.DEFAULT_SAMPLE_RATE * AirPlayTestTone.DEFAULT_DURATION_MS / 1_000
+        private var sentFrames = 0
+
+        override fun readPacket(buffer: ByteArray): Int {
+            if (sentFrames >= totalFrames) return -1
+            val frameCount = minOf(FRAMES_PER_PACKET, totalFrames - sentFrames)
+            val pcm = AirPlayTestTone.pcm16StereoChunk(
+                sampleRate = AirPlayTestTone.DEFAULT_SAMPLE_RATE,
+                startFrame = sentFrames,
+                frameCount = frameCount
+            )
+            buffer.fill(0)
+            pcm.copyInto(buffer, endIndex = pcm.size)
+            sentFrames += frameCount
+            val sleepMs = frameCount * 1_000L / AirPlayTestTone.DEFAULT_SAMPLE_RATE
+            if (sleepMs > 0) Thread.sleep(sleepMs)
+            return frameCount
+        }
+
+        override fun close() = Unit
     }
 
     private fun ByteArray.paddedBigEndian(frameCount: Int, framesPerPacket: Int): ByteArray {

@@ -12,6 +12,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.Icon
+import android.media.projection.MediaProjectionManager
 import android.util.TypedValue
 import android.net.Uri
 import android.os.Build
@@ -59,6 +60,7 @@ class MainActivity : Activity() {
     private lateinit var callMirrorStatusText: TextView
     private lateinit var airPlayTestStatusText: TextView
     private lateinit var airPlayPasscodeInput: EditText
+    private lateinit var airPlayAudioButton: Button
     private lateinit var lastAutoStatusText: TextView
     private lateinit var discoveryManager: MacDiscoveryManager
     private lateinit var colors: DynamicPalette
@@ -86,7 +88,8 @@ class MainActivity : Activity() {
             key == ZevClipPreferences.KEY_CALL_MIRROR_STATUS ||
             key == ZevClipPreferences.KEY_EXPERIMENTAL_AIRPLAY_ENABLED ||
             key == ZevClipPreferences.KEY_AIRPLAY_TEST_STATUS ||
-            key == ZevClipPreferences.KEY_AIRPLAY_PASSCODE
+            key == ZevClipPreferences.KEY_AIRPLAY_PASSCODE ||
+            key == ZevClipPreferences.KEY_AIRPLAY_STREAMING
         ) {
             runOnUiThread { refreshSyncStatuses() }
         }
@@ -156,6 +159,25 @@ class MainActivity : Activity() {
                 AndroidCallMirrorService.start(this)
             }
             refreshSyncStatuses()
+        } else if (requestCode == REQUEST_RECORD_AUDIO) {
+            refreshSyncStatuses()
+        }
+    }
+
+    @Deprecated("Deprecated in Android framework, but still the compatibility path for this Activity.")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_AIRPLAY_CAPTURE) {
+            if (resultCode == RESULT_OK && data != null) {
+                AirPlayAudioCaptureService.start(this, resultCode, data)
+                refreshSyncStatuses()
+            } else {
+                ZevClipPreferences.setAirPlayTestStatus(
+                    this,
+                    getString(R.string.airplay_capture_permission_missing)
+                )
+                refreshSyncStatuses()
+            }
         }
     }
 
@@ -555,6 +577,15 @@ class MainActivity : Activity() {
         if (::airPlayTestStatusText.isInitialized) {
             airPlayTestStatusText.text = ZevClipPreferences.airPlayTestStatus(this)
         }
+        if (::airPlayAudioButton.isInitialized) {
+            airPlayAudioButton.text = getString(
+                if (ZevClipPreferences.isAirPlayStreaming(this)) {
+                    R.string.stop_airplay_audio
+                } else {
+                    R.string.start_airplay_audio
+                }
+            )
+        }
 
         if (::lastAutoStatusText.isInitialized) {
             lastAutoStatusText.text = when {
@@ -687,6 +718,19 @@ class MainActivity : Activity() {
                 addView(primaryButton(getString(R.string.test_airplay_tone)) {
                     startAirPlayToneTest()
                 }, matchWidth(topMargin = 12))
+
+                airPlayAudioButton = primaryButton(
+                    getString(
+                        if (ZevClipPreferences.isAirPlayStreaming(this@MainActivity)) {
+                            R.string.stop_airplay_audio
+                        } else {
+                            R.string.start_airplay_audio
+                        }
+                    )
+                ) {
+                    toggleAirPlayAudioCapture()
+                }
+                addView(airPlayAudioButton, matchWidth(topMargin = 10))
             }
         }
     }
@@ -714,6 +758,40 @@ class MainActivity : Activity() {
             }
             updateStatus(finalStatus)
         }
+    }
+
+    private fun toggleAirPlayAudioCapture() {
+        if (ZevClipPreferences.isAirPlayStreaming(this)) {
+            AirPlayAudioCaptureService.stop(this)
+            ZevClipPreferences.setAirPlayTestStatus(this, getString(R.string.airplay_streaming_stopped))
+            refreshSyncStatuses()
+            return
+        }
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            ZevClipPreferences.setAirPlayTestStatus(this, getString(R.string.airplay_capture_android_q_required))
+            refreshSyncStatuses()
+            return
+        }
+
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_RECORD_AUDIO)
+            ZevClipPreferences.setAirPlayTestStatus(this, getString(R.string.airplay_capture_record_audio_needed))
+            refreshSyncStatuses()
+            return
+        }
+
+        if (::airPlayPasscodeInput.isInitialized) {
+            ZevClipPreferences.setAirPlayPasscode(applicationContext, airPlayPasscodeInput.text.toString())
+        }
+
+        val projectionManager = getSystemService(MediaProjectionManager::class.java)
+        ZevClipPreferences.setAirPlayTestStatus(this, getString(R.string.airplay_streaming_starting))
+        refreshSyncStatuses()
+        startActivityForResult(
+            projectionManager.createScreenCaptureIntent(),
+            REQUEST_AIRPLAY_CAPTURE
+        )
     }
 
     private fun refreshAndroidReceiverStatus() {
@@ -1228,6 +1306,8 @@ class MainActivity : Activity() {
     private companion object {
         const val REQUEST_POST_NOTIFICATIONS = 2001
         const val REQUEST_PHONE_CALLS = 2002
+        const val REQUEST_RECORD_AUDIO = 2003
+        const val REQUEST_AIRPLAY_CAPTURE = 2004
         val FALLBACK_BACKGROUND: Int = Color.rgb(247, 248, 250)
         val FALLBACK_TEXT: Int = Color.rgb(26, 28, 32)
         val FALLBACK_MUTED: Int = Color.rgb(91, 95, 103)

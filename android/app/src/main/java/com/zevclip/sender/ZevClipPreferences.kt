@@ -34,6 +34,7 @@ object ZevClipPreferences {
     const val KEY_EXPERIMENTAL_AIRPLAY_ENABLED = "experimental_airplay_enabled"
     const val KEY_AIRPLAY_TEST_STATUS = "airplay_test_status"
     const val KEY_AIRPLAY_PASSCODE = "airplay_passcode"
+    const val KEY_AIRPLAY_STREAMING = "airplay_streaming"
 
     private const val KEY_ANDROID_DEVICE_ID = "android_device_id"
     private const val KEY_LAST_TILE_SUBTITLE = "last_tile_subtitle"
@@ -229,6 +230,16 @@ object ZevClipPreferences {
     fun setAirPlayPasscode(context: Context, passcode: String) {
         preferences(context).edit()
             .putString(KEY_AIRPLAY_PASSCODE, passcode.trim())
+            .apply()
+    }
+
+    fun isAirPlayStreaming(context: Context): Boolean {
+        return preferences(context).getBoolean(KEY_AIRPLAY_STREAMING, false)
+    }
+
+    fun setAirPlayStreaming(context: Context, isStreaming: Boolean) {
+        preferences(context).edit()
+            .putBoolean(KEY_AIRPLAY_STREAMING, isStreaming)
             .apply()
     }
 
