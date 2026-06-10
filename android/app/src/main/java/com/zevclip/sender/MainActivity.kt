@@ -126,13 +126,6 @@ class MainActivity : Activity() {
         )
         showHomePage()
         requestNotificationPermissionIfNeeded()
-        handleIntent(intent)
-    }
-
-    override fun onNewIntent(intent: Intent?) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        handleIntent(intent)
     }
 
     override fun onStart() {
@@ -234,17 +227,6 @@ class MainActivity : Activity() {
         showingSettings = true
         setContentView(createSettingsView())
         refreshSyncStatuses()
-    }
-
-    private fun handleIntent(intent: Intent?) {
-        if (intent?.action != ACTION_START_AIRPLAY_CAPTURE) return
-        mainHandler.post {
-            if (!ZevClipPreferences.isAirPlayStreaming(this)) {
-                toggleAirPlayAudioCapture()
-            } else {
-                refreshSyncStatuses()
-            }
-        }
     }
 
     private fun createHomeView(): View {
@@ -1321,8 +1303,7 @@ class MainActivity : Activity() {
         val error: Int
     )
 
-    companion object {
-        const val ACTION_START_AIRPLAY_CAPTURE = "com.zevclip.sender.action.START_AIRPLAY_CAPTURE"
+    private companion object {
         const val REQUEST_POST_NOTIFICATIONS = 2001
         const val REQUEST_PHONE_CALLS = 2002
         const val REQUEST_RECORD_AUDIO = 2003
