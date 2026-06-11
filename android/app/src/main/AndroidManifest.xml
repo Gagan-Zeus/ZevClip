@@ -50,9 +50,12 @@
 
         <activity
             android:name=".AirPlayCaptureActivity"
+            android:documentLaunchMode="never"
             android:excludeFromRecents="true"
             android:exported="false"
+            android:finishOnTaskLaunch="true"
             android:noHistory="true"
+            android:taskAffinity=""
             android:theme="@style/Theme.ZevClip.ClipboardCapture" />
 
         <service
