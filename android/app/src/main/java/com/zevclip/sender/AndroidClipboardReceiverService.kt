@@ -443,7 +443,7 @@ class AndroidClipboardReceiverService : Service() {
 
 private fun String.toAirPlayDacpCommand(): AirPlayDacpCommand {
     return when (lowercase()) {
-        "play" -> AirPlayDacpCommand.Play
+        "play" -> AirPlayDacpCommand.PlayPause
         "pause" -> AirPlayDacpCommand.Pause
         "next", "nextitem", "skip_next" -> AirPlayDacpCommand.Next
         "previous", "prev", "previtem", "skip_previous" -> AirPlayDacpCommand.Previous

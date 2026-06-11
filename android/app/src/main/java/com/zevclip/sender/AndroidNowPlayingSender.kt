@@ -48,7 +48,12 @@ class AndroidNowPlayingSender(context: Context) {
                 .put("title", metadata.title.orEmpty())
                 .put("artist", metadata.artist.orEmpty())
                 .put("album", metadata.album.orEmpty())
-                .put("isPlaying", true)
+                .put("isPlaying", metadata.isPlaying)
+                .apply {
+                    metadata.durationMillis?.let { put("durationMillis", it) }
+                    metadata.positionMillis?.let { put("positionMillis", it) }
+                    metadata.artworkBase64?.takeIf { it.isNotBlank() }?.let { put("artworkBase64", it) }
+                }
                 .toString()
                 .toByteArray(Charsets.UTF_8)
 

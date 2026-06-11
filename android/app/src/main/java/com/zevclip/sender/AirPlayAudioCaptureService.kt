@@ -127,7 +127,8 @@ class AirPlayAudioCaptureService : Service() {
                             AndroidNowPlayingReader.current(this).also { metadata ->
                                 metadataSender.sendIfChanged(metadata)
                             }
-                        }
+                        },
+                        publishMetadataToAirPlay = false
                     )
                 }
             }.onSuccess {

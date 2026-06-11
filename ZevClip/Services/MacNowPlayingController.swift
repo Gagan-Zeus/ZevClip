@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import MediaPlayer
 
 struct AndroidNowPlayingPayload: Decodable {
@@ -6,6 +7,9 @@ struct AndroidNowPlayingPayload: Decodable {
     let artist: String?
     let album: String?
     let isPlaying: Bool?
+    let durationMillis: Double?
+    let positionMillis: Double?
+    let artworkBase64: String?
 
     var hasMetadata: Bool {
         [title, artist, album].contains { value in
@@ -41,9 +45,20 @@ final class MacNowPlayingController {
         if let album = payload.album?.trimmedNonEmpty {
             nowPlayingInfo[MPMediaItemPropertyAlbumTitle] = album
         }
+        if let duration = payload.durationMillis, duration > 0 {
+            nowPlayingInfo[MPMediaItemPropertyPlaybackDuration] = duration / 1000.0
+        }
+        if let position = payload.positionMillis, position >= 0 {
+            nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = position / 1000.0
+        }
+        if let artwork = artwork(from: payload.artworkBase64) {
+            nowPlayingInfo[MPMediaItemPropertyArtwork] = artwork
+        }
 
+        let playbackRate = payload.isPlaying == false ? 0.0 : 1.0
         nowPlayingInfo[MPNowPlayingInfoPropertyMediaType] = MPNowPlayingInfoMediaType.audio.rawValue
-        nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = payload.isPlaying == false ? 0.0 : 1.0
+        nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = playbackRate
+        nowPlayingInfo[MPNowPlayingInfoPropertyDefaultPlaybackRate] = 1.0
 
         let center = MPNowPlayingInfoCenter.default()
         center.nowPlayingInfo = nowPlayingInfo
@@ -66,7 +81,7 @@ final class MacNowPlayingController {
 
         commandTargets = [
             center.playCommand.addTarget { [weak self] _ in
-                self?.send("play")
+                self?.send("playpause")
                 return .success
             },
             center.pauseCommand.addTarget { [weak self] _ in
@@ -90,6 +105,18 @@ final class MacNowPlayingController {
 
     private func send(_ action: String) {
         commandHandler?(action)
+    }
+
+    private func artwork(from base64: String?) -> MPMediaItemArtwork? {
+        guard
+            let base64 = base64?.trimmedNonEmpty,
+            let data = Data(base64Encoded: base64),
+            let image = NSImage(data: data)
+        else {
+            return nil
+        }
+
+        return MPMediaItemArtwork(boundsSize: image.size) { _ in image }
     }
 }
 

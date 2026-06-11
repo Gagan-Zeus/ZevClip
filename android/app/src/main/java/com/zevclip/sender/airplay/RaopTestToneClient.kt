@@ -27,12 +27,23 @@ class RaopTestToneClient(
     data class NowPlayingMetadata(
         val title: String?,
         val artist: String?,
-        val album: String?
+        val album: String?,
+        val durationMillis: Long? = null,
+        val positionMillis: Long? = null,
+        val isPlaying: Boolean = true,
+        val artworkBase64: String? = null
     ) {
         fun isEmpty(): Boolean = title.isNullOrBlank() && artist.isNullOrBlank() && album.isNullOrBlank()
 
         fun signature(): String {
-            return listOf(title.orEmpty(), artist.orEmpty(), album.orEmpty()).joinToString("\u0001")
+            return listOf(
+                title.orEmpty(),
+                artist.orEmpty(),
+                album.orEmpty(),
+                durationMillis?.toString().orEmpty(),
+                isPlaying.toString(),
+                artworkBase64?.take(64).orEmpty()
+            ).joinToString("\u0001")
         }
     }
 
@@ -71,7 +82,8 @@ class RaopTestToneClient(
     fun playPcmPackets(
         source: PcmPacketSource,
         status: (String) -> Unit = {},
-        metadataProvider: (() -> NowPlayingMetadata?)? = null
+        metadataProvider: (() -> NowPlayingMetadata?)? = null,
+        publishMetadataToAirPlay: Boolean = true
     ): Result {
         require(password.isNotBlank()) { "AirPlay password is empty." }
 
@@ -129,7 +141,8 @@ class RaopTestToneClient(
                 sequenceNumber = initialSequence,
                 rtpTimestamp = clock.rtpTime32,
                 metadataProvider = metadataProvider,
-                lastSignature = null
+                lastSignature = null,
+                publishMetadataToAirPlay = publishMetadataToAirPlay
             )
             startKeepAlive()
 
@@ -142,7 +155,8 @@ class RaopTestToneClient(
                 initialSequence = initialSequence,
                 ssrc = sessionId.toInt(),
                 rtspSession = rtspSession,
-                metadataProvider = metadataProvider
+                metadataProvider = metadataProvider,
+                publishMetadataToAirPlay = publishMetadataToAirPlay
             )
             Result("AirPlay audio stream ended ($packets packets).", packets)
         } finally {
@@ -303,7 +317,8 @@ class RaopTestToneClient(
         initialSequence: Int,
         ssrc: Int,
         rtspSession: String,
-        metadataProvider: (() -> NowPlayingMetadata?)?
+        metadataProvider: (() -> NowPlayingMetadata?)?,
+        publishMetadataToAirPlay: Boolean
     ): Int {
         val framesPerPacket = FRAMES_PER_PACKET
         val pcm = ByteArray(framesPerPacket * 2 * 2)
@@ -321,7 +336,8 @@ class RaopTestToneClient(
                     sequenceNumber = sequenceNumber,
                     rtpTimestamp = clock.rtpTime32,
                     metadataProvider = metadataProvider,
-                    lastSignature = lastMetadataSignature
+                    lastSignature = lastMetadataSignature,
+                    publishMetadataToAirPlay = publishMetadataToAirPlay
                 )
             }
             val frameCount = source.readPacket(pcm)
@@ -348,14 +364,17 @@ class RaopTestToneClient(
         sequenceNumber: Int,
         rtpTimestamp: Int,
         metadataProvider: (() -> NowPlayingMetadata?)?,
-        lastSignature: String?
+        lastSignature: String?,
+        publishMetadataToAirPlay: Boolean
     ): String? {
         val metadata = metadataProvider?.invoke() ?: return lastSignature
         if (metadata.isEmpty()) return lastSignature
         val signature = metadata.signature()
         if (signature == lastSignature) return lastSignature
-        runCatching {
-            setMetadata(session, sequenceNumber, rtpTimestamp, metadata)
+        if (publishMetadataToAirPlay) {
+            runCatching {
+                setMetadata(session, sequenceNumber, rtpTimestamp, metadata)
+            }
         }
         return signature
     }
@@ -592,7 +611,7 @@ class RaopTestToneClient(
         const val FRAMES_PER_PACKET = 352
         const val DEFAULT_TIMEOUT_MS = 5_000
         const val KEEP_ALIVE_INTERVAL_MS = 20_000L
-        const val METADATA_REFRESH_INTERVAL_MS = 5_000L
+        const val METADATA_REFRESH_INTERVAL_MS = 1_000L
         const val LOW_LATENCY_FRAMES = 11_025L
         const val USER_AGENT = "AirTunes/366.0"
         const val DIGEST_USERNAME = "pyatv"
