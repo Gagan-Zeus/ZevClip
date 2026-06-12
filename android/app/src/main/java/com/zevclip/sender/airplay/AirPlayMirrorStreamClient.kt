@@ -10,14 +10,15 @@ import java.net.Socket
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.Locale
+import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
 class AirPlayMirrorStreamClient(
     private val target: AirPlayTarget,
     private val identity: AirPlayIdentity,
-    private val width: Int,
-    private val height: Int,
+    width: Int,
+    height: Int,
     private val running: AtomicBoolean,
     private val streamPort: Int,
     private val dataStreamKey: ByteArray,
@@ -28,11 +29,18 @@ class AirPlayMirrorStreamClient(
 ) : AirPlayScreenSampleSink, Closeable {
     private val outputLock = Any()
     private val sessionId = CryptoPrimitives.randomBytes(4).toUIntLe()
+    @Volatile
+    private var contentWidth = width
+    @Volatile
+    private var contentHeight = height
     private var socket: Socket? = null
     private var codecConfig: ByteArray? = null
     private var codecConfigSent = false
     private var heartbeatWorker: Thread? = null
+    private var videoWriterWorker: Thread? = null
+    private val videoQueue = ArrayBlockingQueue<PendingVideoFrame>(MAX_PENDING_VIDEO_FRAMES)
     private var videoPacketsSent = 0
+    private var videoPacketsDropped = 0
     private var codecPacketsSent = 0
     private var videoNonce = 0L
 
@@ -41,6 +49,7 @@ class AirPlayMirrorStreamClient(
         nextSocket.connect(InetSocketAddress(target.host, streamPort), connectTimeoutMs)
         nextSocket.soTimeout = readTimeoutMs
         nextSocket.tcpNoDelay = true
+        nextSocket.sendBufferSize = STREAM_SEND_BUFFER_SIZE
         socket = nextSocket
 
         if (legacyHttpStream) {
@@ -87,7 +96,30 @@ class AirPlayMirrorStreamClient(
                 Thread.sleep(1_000L)
             }
         }
+        videoWriterWorker = thread(name = "zevclip-airplay-mirror-video-writer", isDaemon = true) {
+            while (running.get()) {
+                runCatching {
+                    val frame = videoQueue.take()
+                    sendVideoFrame(frame)
+                }.onFailure { error ->
+                    if (running.get()) {
+                        Log.w(TAG, "AirPlay mirror video writer failed", error)
+                        running.set(false)
+                    }
+                    return@thread
+                }
+            }
+        }
         Log.i(TAG, "Connected AirPlay mirror stream to ${target.host}:$streamPort")
+    }
+
+    fun updateVideoSize(width: Int, height: Int) {
+        if (width <= 0 || height <= 0) return
+        if (contentWidth == width && contentHeight == height) return
+        contentWidth = width
+        contentHeight = height
+        codecConfigSent = false
+        Log.i(TAG, "Updated AirPlay mirror video size to ${width}x$height")
     }
 
     override fun setCodecConfig(config: ByteArray) {
@@ -109,14 +141,31 @@ class AirPlayMirrorStreamClient(
         if (keyFrame) sendCodecConfigIfReady(force = false)
         val avccSample = sample.toAvccSample()
         if (avccSample.isEmpty()) return
+        enqueueVideoFrame(PendingVideoFrame(avccSample, presentationTimeUs, keyFrame))
+    }
+
+    private fun enqueueVideoFrame(frame: PendingVideoFrame) {
+        if (frame.keyFrame) {
+            videoQueue.clear()
+        }
+        while (!videoQueue.offer(frame)) {
+            videoQueue.poll()
+            videoPacketsDropped++
+            if (videoPacketsDropped == 1 || videoPacketsDropped % 30 == 0) {
+                Log.i(TAG, "Dropped $videoPacketsDropped stale AirPlay mirror video packet(s)")
+            }
+        }
+    }
+
+    private fun sendVideoFrame(frame: PendingVideoFrame) {
         try {
             sendPacket(
                 payloadType = TYPE_VIDEO,
-                payloadSubtype = if (keyFrame) VIDEO_SUBTYPE_KEYFRAME else 0,
+                payloadSubtype = if (frame.keyFrame) VIDEO_SUBTYPE_KEYFRAME else 0,
                 optionLow = 0,
                 optionHigh = 0,
-                payload = avccSample,
-                timestamp = presentationTimeUs.toNtpTimestamp(),
+                payload = frame.payload,
+                timestamp = frame.presentationTimeUs.toNtpTimestamp(),
                 encryptVideoPayload = true
             )
         } catch (error: IOException) {
@@ -156,12 +205,14 @@ class AirPlayMirrorStreamClient(
             payload = config,
             timestamp = 0L
         ) { header ->
-            header.putFloat(16, width.toFloat())
-            header.putFloat(20, height.toFloat())
-            header.putFloat(40, width.toFloat())
-            header.putFloat(44, height.toFloat())
-            header.putFloat(56, width.toFloat())
-            header.putFloat(60, height.toFloat())
+            val currentWidth = contentWidth.toFloat()
+            val currentHeight = contentHeight.toFloat()
+            header.putFloat(16, currentWidth)
+            header.putFloat(20, currentHeight)
+            header.putFloat(40, currentWidth)
+            header.putFloat(44, currentHeight)
+            header.putFloat(56, currentWidth)
+            header.putFloat(60, currentHeight)
         }
         codecPacketsSent++
         Log.i(TAG, "Sent AirPlay mirror codec config packet #$codecPacketsSent (${config.size} bytes)")
@@ -239,12 +290,17 @@ class AirPlayMirrorStreamClient(
     override fun close() {
         runCatching { socket?.close() }
         socket = null
+        videoWriterWorker?.interrupt()
+        videoWriterWorker = null
         heartbeatWorker = null
+        videoQueue.clear()
     }
 
     private companion object {
         const val DEFAULT_TIMEOUT_MS = 4_000
         const val PACKET_HEADER_SIZE = 128
+        const val STREAM_SEND_BUFFER_SIZE = 512 * 1024
+        const val MAX_PENDING_VIDEO_FRAMES = 2
         const val TYPE_VIDEO: Byte = 0
         const val TYPE_CODEC: Byte = 1
         const val TYPE_HEARTBEAT: Byte = 2
@@ -257,6 +313,12 @@ class AirPlayMirrorStreamClient(
         val RESPONSE_HEADER_END = byteArrayOf('\r'.code.toByte(), '\n'.code.toByte(), '\r'.code.toByte(), '\n'.code.toByte())
     }
 }
+
+private data class PendingVideoFrame(
+    val payload: ByteArray,
+    val presentationTimeUs: Long,
+    val keyFrame: Boolean
+)
 
 private fun videoNonceNonce(counter: Long): ByteArray {
     require(counter >= 0) { "AirPlay mirror video nonce counter must be non-negative." }
@@ -314,10 +376,10 @@ private fun ByteArray.toAvcDecoderConfigurationRecord(): ByteArray {
 private fun ByteArray.toAvccSample(): ByteArray {
     if (isEmpty()) return this
     if (!startsWithAnnexBStartCode()) return this
-        val nals = splitAnnexBNals()
+    val nals = splitAnnexBNals()
         .filterNot { nal ->
             val type = nal.firstOrNull()?.toInt()?.and(0x1F) ?: return@filterNot true
-            type == 9
+            type == 6 || type == 7 || type == 8 || type == 9
         }
     return ByteArrayOutputStream().apply {
         nals.forEach { nal ->
