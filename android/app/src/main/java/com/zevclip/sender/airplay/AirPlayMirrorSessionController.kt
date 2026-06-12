@@ -3,6 +3,7 @@ package com.zevclip.sender.airplay
 import android.util.Log
 import java.io.Closeable
 import java.util.UUID
+import kotlin.concurrent.thread
 
 class AirPlayMirrorSessionController(
     private val target: AirPlayTarget,
@@ -18,6 +19,10 @@ class AirPlayMirrorSessionController(
     private var connected: AirPlayPairVerifier.ConnectedSession? = null
     private var eventChannel: AirPlayEventChannel? = null
     private var timingServer: AirPlayTimingServer? = null
+    @Volatile
+    private var keepAliveRunning = false
+    private var keepAliveWorker: Thread? = null
+    private val requestLock = Any()
     private var cseq = 1
     private val rtspSessionId = CryptoPrimitives.randomBytes(4).toUInt32Be()
     private val sessionUuid = UUID.randomUUID().toString().uppercase()
@@ -116,6 +121,7 @@ class AirPlayMirrorSessionController(
     fun recordBestEffort() {
         val session = connected ?: return
         sendRecordBestEffort(session)
+        startKeepAlive(session)
     }
 
     private fun connectPairVerified(): AirPlayPairVerifier.ConnectedSession {
@@ -154,7 +160,7 @@ class AirPlayMirrorSessionController(
         }
     }
 
-    private fun rtspHeaders(): Map<String, String> {
+    private fun rtspHeaders(vararg extraHeaders: Pair<String, String>): Map<String, String> {
         val instanceId = identity.deviceId.filter { it.isLetterOrDigit() }.take(16).uppercase()
         return linkedMapOf(
             "CSeq" to (cseq++).toString(),
@@ -162,7 +168,7 @@ class AirPlayMirrorSessionController(
             "DACP-ID" to instanceId,
             "Active-Remote" to "1",
             "Client-Instance" to instanceId
-        )
+        ).apply { putAll(extraHeaders) }
     }
 
     private fun rtspUri(localHost: String): String {
@@ -194,21 +200,82 @@ class AirPlayMirrorSessionController(
 
     private fun sendRecordBestEffort(session: AirPlayPairVerifier.ConnectedSession) {
         runCatching {
-            val record = session.transport.requestRaw(
-                method = "RECORD",
-                uri = rtspUri(session.localRtspHost),
-                protocol = "RTSP/1.0",
-                headers = rtspHeaders(),
-                body = ByteArray(0),
-                contentType = null
-            )
+            val record = synchronized(requestLock) {
+                session.transport.requestRaw(
+                    method = "RECORD",
+                    uri = rtspUri(session.localRtspHost),
+                    protocol = "RTSP/1.0",
+                    headers = rtspHeaders(
+                        "Session" to sessionUuid,
+                        "Range" to "npt=0-",
+                        "RTP-Info" to "seq=0;rtptime=0"
+                    ),
+                    body = ByteArray(0),
+                    contentType = null
+                )
+            }
             Log.i(TAG, "AirPlay mirror RECORD response: ${record.statusCode} ${record.reasonPhrase}")
         }.onFailure { error ->
             Log.i(TAG, "AirPlay mirror RECORD did not return a response; continuing: ${error.message}")
         }
     }
 
+    private fun startKeepAlive(session: AirPlayPairVerifier.ConnectedSession) {
+        if (keepAliveRunning) return
+        keepAliveRunning = true
+        keepAliveWorker = thread(name = "zevclip-airplay-mirror-rtsp-keepalive", isDaemon = true) {
+            var lastParameterAt = 0L
+            sendFeedbackBestEffort(session)
+            while (keepAliveRunning) {
+                Thread.sleep(FEEDBACK_INTERVAL_MS)
+                sendFeedbackBestEffort(session)
+                val now = System.currentTimeMillis()
+                if (now - lastParameterAt >= GET_PARAMETER_INTERVAL_MS) {
+                    sendGetParameterBestEffort(session)
+                    lastParameterAt = now
+                }
+            }
+        }
+    }
+
+    private fun sendFeedbackBestEffort(session: AirPlayPairVerifier.ConnectedSession) {
+        runCatching {
+            synchronized(requestLock) {
+                session.transport.requestRaw(
+                    method = "POST",
+                    uri = "/feedback",
+                    protocol = "RTSP/1.0",
+                    headers = rtspHeaders("Session" to sessionUuid),
+                    body = ByteArray(0),
+                    contentType = null
+                )
+            }
+        }.onFailure { error ->
+            if (keepAliveRunning) Log.d(TAG, "AirPlay mirror feedback keepalive failed: ${error.message}")
+        }
+    }
+
+    private fun sendGetParameterBestEffort(session: AirPlayPairVerifier.ConnectedSession) {
+        runCatching {
+            synchronized(requestLock) {
+                session.transport.requestRaw(
+                    method = "GET_PARAMETER",
+                    uri = rtspUri(session.localRtspHost),
+                    protocol = "RTSP/1.0",
+                    headers = rtspHeaders("Session" to sessionUuid),
+                    body = ByteArray(0),
+                    contentType = null
+                )
+            }
+        }.onFailure { error ->
+            if (keepAliveRunning) Log.d(TAG, "AirPlay mirror GET_PARAMETER keepalive failed: ${error.message}")
+        }
+    }
+
     override fun close() {
+        keepAliveRunning = false
+        keepAliveWorker?.interrupt()
+        keepAliveWorker = null
         runCatching { eventChannel?.stop() }
         eventChannel = null
         runCatching { timingServer?.stop() }
@@ -226,6 +293,8 @@ class AirPlayMirrorSessionController(
         const val EVENT_CHANNEL_RETRY_MS = 350L
         const val STREAM_AES_KEY_SIZE = 16
         const val DATA_STREAM_KEY_SIZE = 32
+        const val FEEDBACK_INTERVAL_MS = 2_000L
+        const val GET_PARAMETER_INTERVAL_MS = 15_000L
     }
 }
 
