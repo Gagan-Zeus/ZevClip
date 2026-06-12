@@ -472,6 +472,14 @@ class MainActivity : Activity() {
     }
 
     private fun startClipboardSync() {
+        if (::startClipboardSyncButton.isInitialized) {
+            startClipboardSyncButton.visibility = View.GONE
+            startClipboardSyncButton.isEnabled = false
+        }
+        if (::stopClipboardSyncButton.isInitialized) {
+            stopClipboardSyncButton.visibility = View.VISIBLE
+            stopClipboardSyncButton.isEnabled = true
+        }
         saveEndpointAndTokenFromUi()
         ZevClipPreferences.setClipboardSyncEnabled(this, true)
         AndroidClipboardReceiverService.start(this)
@@ -495,6 +503,14 @@ class MainActivity : Activity() {
     }
 
     private fun stopClipboardSync() {
+        if (::startClipboardSyncButton.isInitialized) {
+            startClipboardSyncButton.visibility = View.VISIBLE
+            startClipboardSyncButton.isEnabled = true
+        }
+        if (::stopClipboardSyncButton.isInitialized) {
+            stopClipboardSyncButton.visibility = View.GONE
+            stopClipboardSyncButton.isEnabled = false
+        }
         ZevClipPreferences.setClipboardSyncEnabled(this, false)
         AndroidClipboardReceiverService.stop(this)
         AndroidCallMirrorService.stop(this)
@@ -1415,8 +1431,8 @@ class MainActivity : Activity() {
         }
 
         if (::startClipboardSyncButton.isInitialized) {
-            startClipboardSyncButton.visibility = if (syncEnabled && isRunning) View.GONE else View.VISIBLE
-            startClipboardSyncButton.isEnabled = !syncEnabled || !isRunning
+            startClipboardSyncButton.visibility = if (syncEnabled || isRunning) View.GONE else View.VISIBLE
+            startClipboardSyncButton.isEnabled = !syncEnabled && !isRunning
         }
         if (::stopClipboardSyncButton.isInitialized) {
             stopClipboardSyncButton.visibility = if (syncEnabled || isRunning) View.VISIBLE else View.GONE
