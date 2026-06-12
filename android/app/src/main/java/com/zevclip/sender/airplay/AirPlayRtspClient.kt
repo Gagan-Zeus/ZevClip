@@ -176,7 +176,7 @@ class AirPlayRtspClient(
 
     companion object {
         private const val DEFAULT_TIMEOUT_MS = 4_000
-        private const val USER_AGENT = "AirPlay/950.7.1 ZevClip"
+        private const val USER_AGENT = "AirPlay/950.7.1 ZevLink"
         private val RESPONSE_HEADER_END = byteArrayOf('\r'.code.toByte(), '\n'.code.toByte(), '\r'.code.toByte(), '\n'.code.toByte())
         private val STATUS_LINE_REGEX = Regex("(RTSP/1\\.0)\\s+(\\d{3})(?:\\s+(.*))?")
 

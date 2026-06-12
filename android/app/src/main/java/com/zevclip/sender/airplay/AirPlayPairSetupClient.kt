@@ -264,7 +264,7 @@ class AirPlayPairSetupClient(
             append("Content-Length: ")
             append(body.size)
             append("\r\n")
-            append("User-Agent: AirPlay/${AirPlaySenderInfo.SOURCE_VERSION} ZevClip\r\n")
+            append("User-Agent: AirPlay/${AirPlaySenderInfo.SOURCE_VERSION} ZevLink\r\n")
             append("X-Apple-Device-ID: ")
             append(identity.deviceId)
             append("\r\n")

@@ -242,7 +242,8 @@ final class AndroidClipboardSender: ObservableObject {
             return
         }
 
-        if status.hasPrefix("No ZevClip Android receiver") ||
+        if status.hasPrefix("No ZevLink Android receiver") ||
+            status.hasPrefix("No ZevClip Android receiver") ||
             status.hasPrefix("Could not start Android receiver discovery") {
             pendingChange = nil
         }

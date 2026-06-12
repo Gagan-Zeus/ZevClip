@@ -2,7 +2,7 @@ import Foundation
 import Network
 
 final class ClipboardHTTPServer {
-    private let queue = DispatchQueue(label: "com.zevclip.receiver.http-server")
+    private let queue = DispatchQueue(label: "com.zevlink.receiver.http-server")
     private var listener: NWListener?
     private var connections: [ObjectIdentifier: HTTPConnection] = [:]
 
@@ -383,7 +383,7 @@ private final class HTTPConnection {
         let expectedToken = tokenProvider()
         let providedToken = headers["x-zevclip-token"]
         guard !expectedToken.isEmpty, providedToken == expectedToken else {
-            respond(status: "401 Unauthorized", body: "Missing or invalid ZevClip pairing token.")
+            respond(status: "401 Unauthorized", body: "Missing or invalid ZevLink pairing token.")
             return true
         }
 
@@ -428,7 +428,7 @@ private final class HTTPConnection {
             .nonEmpty
         let name = requestHeaders["x-zevclip-android-receiver-name"]?
             .trimmingCharacters(in: .whitespacesAndNewlines)
-            .nonEmpty ?? "ZevClip Android Receiver"
+            .nonEmpty ?? "ZevLink Android Receiver"
         let batteryPercentage = requestHeaders["x-zevclip-android-battery"]
             .flatMap(Int.init)
             .flatMap { (0...100).contains($0) ? $0 : nil }

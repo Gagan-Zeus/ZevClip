@@ -236,7 +236,7 @@ class AirPlayDacpControlServer(
                 dmapUInt32("mstt", 200) +
                     dmapUInt32("mpro", 0x0002000a) +
                     dmapUInt32("apro", 0x0003000c) +
-                    dmapString("minm", "ZevClip") +
+                    dmapString("minm", "ZevLink") +
                     dmapUInt32("msal", 1) +
                     dmapUInt32("mslr", 1) +
                     dmapUInt32("mstm", 1800)

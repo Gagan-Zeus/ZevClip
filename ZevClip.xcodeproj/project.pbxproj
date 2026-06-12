@@ -33,7 +33,7 @@
 		1077912024FDF76610651B40 /* MacClipboardWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacClipboardWatcher.swift; sourceTree = "<group>"; };
 		1DDD7A2F7CB9F1C7199F16D5 /* MenuBarContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarContentView.swift; sourceTree = "<group>"; };
 		216D04B84726F014340F6DE2 /* AndroidClipboardSender.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AndroidClipboardSender.swift; sourceTree = "<group>"; };
-		21B01AEF6AD3FEB44682B65B /* ZevClip.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ZevClip.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		21B01AEF6AD3FEB44682B65B /* ZevLink.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ZevLink.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		320BFAD0195F6C551F287AC0 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		4AFF2250F5F626D53C0BE6CF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		4F2EFD3F683F74CF002CD50F /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
@@ -108,7 +108,7 @@
 		ED36DB6D63CB1C593DF8CD68 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				21B01AEF6AD3FEB44682B65B /* ZevClip.app */,
+				21B01AEF6AD3FEB44682B65B /* ZevLink.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -153,8 +153,8 @@
 			name = ZevClip;
 			packageProductDependencies = (
 			);
-			productName = ZevClip;
-			productReference = 21B01AEF6AD3FEB44682B65B /* ZevClip.app */;
+			productName = ZevLink;
+			productReference = 21B01AEF6AD3FEB44682B65B /* ZevLink.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -300,8 +300,8 @@
 				);
 				MARKETING_VERSION = 1.5.0;
 				OTHER_CODE_SIGN_FLAGS = "--options runtime";
-				PRODUCT_BUNDLE_IDENTIFIER = com.zevclip.receiver;
-				PRODUCT_NAME = ZevClip;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zevlink.receiver;
+				PRODUCT_NAME = ZevLink;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.0;
 			};
@@ -324,8 +324,8 @@
 				);
 				MARKETING_VERSION = 1.5.0;
 				OTHER_CODE_SIGN_FLAGS = "--options runtime";
-				PRODUCT_BUNDLE_IDENTIFIER = com.zevclip.receiver;
-				PRODUCT_NAME = ZevClip;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zevlink.receiver;
+				PRODUCT_NAME = ZevLink;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.0;
 			};

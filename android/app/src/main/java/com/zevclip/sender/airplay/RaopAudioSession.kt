@@ -373,7 +373,7 @@ class RaopAudioSession(
         return buildString {
             append("v=0\r\n")
             append("o=iTunes $sessionId 0 IN $localFamily $localHost\r\n")
-            append("s=${identity?.senderName?.sdpLineValue() ?: "ZevClip"}\r\n")
+            append("s=${identity?.senderName?.sdpLineValue() ?: "ZevLink"}\r\n")
             append("c=IN $remoteFamily ${target.host}\r\n")
             append("t=0 0\r\n")
             append("m=audio 0 RTP/AVP 96\r\n")

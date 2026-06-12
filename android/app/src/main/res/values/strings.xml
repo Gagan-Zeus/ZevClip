@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">ZevClip</string>
-    <string name="screen_title">ZevClip</string>
-    <string name="screen_description">One switch shares clipboard both ways on the same Wi-Fi, LAN, or phone hotspot.</string>
+    <string name="app_name">ZevLink</string>
+    <string name="screen_title">ZevLink</string>
+    <string name="screen_description">Connect your Android phone and Mac for clipboard sync, AirPlay, notifications, and calls.</string>
     <string name="settings_title">Settings</string>
     <string name="settings_description">Permissions, Mac pairing, and manual connection details.</string>
     <string name="done">Done</string>
-    <string name="clipboard_sync_title">Clipboard sync</string>
+    <string name="clipboard_sync_title">Clipboard</string>
+    <string name="clipboard_sync_description">Keep copied text available on Android and Mac.</string>
     <string name="sync_ready_summary">Both directions are ready.</string>
     <string name="sync_starting_summary">Sync is on. Finishing setup…</string>
     <string name="sync_waiting_for_mac">Pair or reconnect your Mac.</string>
@@ -86,7 +87,7 @@
     <string name="airplay_broadcast_stopped">AirPlay broadcast stopped.</string>
     <string name="airplay_broadcast_failed">AirPlay broadcast failed: %1$s</string>
     <string name="airplay_broadcast_all_devices_failed">All AirPlay broadcast devices disconnected.</string>
-    <string name="airplay_notification_title">ZevClip AirPlay</string>
+    <string name="airplay_notification_title">ZevLink AirPlay</string>
     <string name="airplay_streaming_starting">Starting AirPlay audio…</string>
     <string name="airplay_streaming_connecting">Connecting Android audio to Mac…</string>
     <string name="airplay_streaming_live">Android audio is streaming to Mac.</string>
@@ -105,13 +106,13 @@
     <string name="stop_clipboard_sync">Stop Sync</string>
     <string name="sync_summary">Sync: %1$s\nAndroid to Mac: %2$s\nMac to Android: %3$s</string>
     <string name="sync_started">Clipboard sync started.</string>
-    <string name="sync_started_accessibility_needed">Sync started. Enable ZevClip Accessibility for Android to Mac copies.</string>
+    <string name="sync_started_accessibility_needed">Sync started. Enable ZevLink Accessibility for Android to Mac copies.</string>
     <string name="sync_stopped">Clipboard sync stopped.</string>
-    <string name="notification_title_running">ZevClip running</string>
+    <string name="notification_title_running">ZevLink running</string>
     <string name="notification_text_running">Clipboard sync is on</string>
     <string name="notification_status_connected">Connected</string>
     <string name="notification_status_not_connected">Not connected</string>
-    <string name="notification_title_stopped">ZevClip stopped</string>
+    <string name="notification_title_stopped">ZevLink stopped</string>
     <string name="notification_text_stopped">Clipboard sync is off.</string>
     <string name="notification_mirror_compact_status">Notification mirroring: %1$s\n%2$s</string>
     <string name="open_notification_access_settings">Notifications</string>
@@ -124,13 +125,13 @@
     <string name="discover_mac">Reconnect Mac</string>
     <string name="discovery_status">Discovery: %1$s</string>
     <string name="qr_pairing_title">QR pairing</string>
-    <string name="qr_pairing_instructions">Scan the QR code shown in ZevClip Settings on the Mac to save the Mac identity, host, port, and pairing token automatically.</string>
+    <string name="qr_pairing_instructions">Scan the QR code shown in ZevLink Settings on the Mac to save the Mac identity, host, port, and pairing token automatically.</string>
     <string name="scan_pairing_qr">Scan Mac QR</string>
     <string name="qr_scan_starting">Opening QR scanner…</string>
     <string name="qr_scan_empty">QR code did not contain text.</string>
     <string name="qr_scan_cancelled">QR scan cancelled.</string>
     <string name="qr_scan_failed">QR scan failed: %1$s</string>
-    <string name="qr_scan_invalid">QR code is not valid ZevClip pairing data.</string>
+    <string name="qr_scan_invalid">QR code is not valid ZevLink pairing data.</string>
     <string name="qr_pairing_checking">Checking Mac reachability…</string>
     <string name="qr_pairing_saved">Saved %1$s at %2$s:%3$d.</string>
     <string name="qr_pairing_saved_unverified">Saved %1$s at %2$s:%3$d, but the phone could not verify that address is reachable.</string>
@@ -168,12 +169,12 @@
     <string name="battery_optimization_warning">Battery optimization may stop background auto-sync.</string>
     <string name="open_battery_optimization_settings">Open Battery Optimization Settings</string>
     <string name="request_ignore_battery_optimization">Request Unrestricted Battery Access</string>
-    <string name="battery_optimization_already_ignored">Battery optimization is already ignored for ZevClip.</string>
+    <string name="battery_optimization_already_ignored">Battery optimization is already ignored for ZevLink.</string>
     <string name="battery_optimization_request_unavailable">Could not open the battery optimization request. Use App Info &gt; Battery and allow background activity.</string>
     <string name="open_autostart_settings">Open vivo/iQOO Auto-start Settings</string>
     <string name="autostart_status_unknown_open_settings">Unknown / Open settings</string>
-    <string name="autostart_settings_manual_instructions">Could not open vivo/iQOO Auto-start directly. Open system Settings, search for Auto start, and enable ZevClip.</string>
-    <string name="settings_screen_unavailable">Could not open that settings screen. Use App Info to configure ZevClip manually.</string>
+    <string name="autostart_settings_manual_instructions">Could not open vivo/iQOO Auto-start directly. Open system Settings, search for Auto start, and enable ZevLink.</string>
+    <string name="settings_screen_unavailable">Could not open that settings screen. Use App Info to configure ZevLink manually.</string>
     <string name="never">Never</string>
     <string name="yes">Yes</string>
     <string name="no">No</string>
@@ -199,5 +200,5 @@
     <string name="send">Send to Mac</string>
     <string name="ready">Ready.</string>
     <string name="sending_to_endpoint">Sending to %1$s…</string>
-    <string name="accessibility_service_description">Best-effort detection of copy and cut actions so ZevClip can send clipboard text to your Mac.</string>
+    <string name="accessibility_service_description">Best-effort detection of copy and cut actions so ZevLink can send clipboard text to your Mac.</string>
 </resources>

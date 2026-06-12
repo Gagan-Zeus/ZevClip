@@ -24,7 +24,7 @@ final class ClipboardReceiver: ObservableObject {
     }
 
     static let port: UInt16 = 9876
-    static let serviceName = "ZevClip Mac Receiver"
+    static let serviceName = "ZevLink Mac Receiver"
     static let serviceType = "_zevclip._tcp"
 
     @Published private(set) var status: ServerStatus = .stopped

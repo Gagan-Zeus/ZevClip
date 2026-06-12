@@ -1471,24 +1471,16 @@ class MainActivity : Activity() {
             addView(cardTitle(getString(R.string.clipboard_sync_title)).apply {
                 textSize = 24f
             })
-            statusText = textView(getString(R.string.ready), 22f, colors.primary).apply {
+            addView(textView(getString(R.string.clipboard_sync_description), 15f, colors.muted).apply {
+                setPadding(0, dp(6), 0, dp(12))
+                setLineSpacing(0f, 1.06f)
+            }, matchWidth())
+
+            statusText = textView(getString(R.string.ready), 18f, colors.primary).apply {
                 setTypeface(typeface, Typeface.BOLD)
-                setPadding(0, dp(10), 0, dp(14))
+                setPadding(0, 0, 0, dp(16))
             }
             addView(statusText, matchWidth())
-
-            androidReceiverStatusText = textView("", 17f, colors.primary)
-            addView(androidReceiverStatusText, matchWidth())
-
-            androidReceiverLastReceivedText = textView("", 16f, colors.muted).apply {
-                setPadding(0, dp(6), 0, 0)
-            }
-            addView(androidReceiverLastReceivedText, matchWidth())
-
-            lastAutoStatusText = textView("", 17f, colors.muted).apply {
-                setPadding(0, dp(6), 0, dp(20))
-            }
-            addView(lastAutoStatusText, matchWidth())
 
             val actionRow = horizontalButtons(
                 primaryButton(getString(R.string.start_clipboard_sync)) { startClipboardSync() },

@@ -136,7 +136,7 @@ class AirPlayAudioSessionController(
             uri = "/feedback",
             headers = linkedMapOf(
                 "CSeq" to (cseq++).toString(),
-                "User-Agent" to "AirPlay/950.7.1 ZevClip"
+                "User-Agent" to "AirPlay/950.7.1 ZevLink"
             ),
             body = ByteArray(0),
             contentType = null
@@ -155,7 +155,7 @@ class AirPlayAudioSessionController(
             uri = AirPlayRtspClient.rtspUrl(localRtspHost, target.port, "/${ids.streamConnectionId}"),
             headers = linkedMapOf(
                 "CSeq" to (cseq++).toString(),
-                "User-Agent" to "AirPlay/950.7.1 ZevClip",
+                "User-Agent" to "AirPlay/950.7.1 ZevLink",
                 "DACP-ID" to clientInstanceId(),
                 "Active-Remote" to "1",
                 "Client-Instance" to clientInstanceId()

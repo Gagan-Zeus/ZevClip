@@ -126,7 +126,7 @@ class AndroidClipboardHttpReceiver(
             val headers = parseHeaders(lines.drop(1))
             val expectedToken = tokenProvider().trim()
             if (expectedToken.isEmpty() || headers[TOKEN_HEADER] != expectedToken) {
-                output.write(response("401 Unauthorized", "Missing or invalid ZevClip pairing token.").toByteArray(Charsets.UTF_8))
+                output.write(response("401 Unauthorized", "Missing or invalid ZevLink pairing token.").toByteArray(Charsets.UTF_8))
                 return
             }
 
@@ -461,7 +461,7 @@ class AndroidClipboardHttpReceiver(
         private const val MAC_BATTERY_AVAILABLE_HEADER = "x-zevclip-mac-battery-available"
         private const val MAC_BATTERY_HEADER = "x-zevclip-mac-battery"
         private const val MAC_CHARGING_HEADER = "x-zevclip-mac-charging"
-        private const val CLIPBOARD_LABEL = "ZevClip"
+        private const val CLIPBOARD_LABEL = "ZevLink"
         private const val HEADER_END = "\r\n\r\n"
         private const val MAX_HEADER_LENGTH = 16_384
         private const val MAX_BODY_LENGTH = 1_048_576

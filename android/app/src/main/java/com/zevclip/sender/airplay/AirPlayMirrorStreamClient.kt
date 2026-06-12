@@ -60,7 +60,7 @@ class AirPlayMirrorStreamClient(
                 append("Host: ")
                 append(target.host)
                 append("\r\n")
-                append("User-Agent: AirPlay/690.7.1 ZevClip\r\n")
+                append("User-Agent: AirPlay/690.7.1 ZevLink\r\n")
                 append("X-Apple-Device-ID: ")
                 append(identity.deviceId)
                 append("\r\n")

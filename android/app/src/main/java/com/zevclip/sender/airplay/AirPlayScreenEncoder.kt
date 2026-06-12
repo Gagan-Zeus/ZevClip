@@ -32,7 +32,7 @@ class AirPlayScreenEncoder(
         nextCodec.start()
 
         virtualDisplay = projection.createVirtualDisplay(
-            "ZevClip AirPlay Screen",
+            "ZevLink AirPlay Screen",
             width,
             height,
             densityDpi,

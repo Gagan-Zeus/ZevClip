@@ -385,7 +385,7 @@ class AirPlayMirrorSessionController(
     private companion object {
         const val TAG = "ZevClipAirPlayMirrorSetup"
         const val BPLIST_CONTENT_TYPE = "application/x-apple-binary-plist"
-        const val USER_AGENT = "AirPlay/${AirPlaySenderInfo.SOURCE_VERSION} ZevClip"
+        const val USER_AGENT = "AirPlay/${AirPlaySenderInfo.SOURCE_VERSION} ZevLink"
         const val MIRROR_STREAM_TYPE = 110L
         const val AUDIO_STREAM_TYPE = 96L
         const val AUDIO_STREAM_CONNECTION_ID = 0x5A435641L

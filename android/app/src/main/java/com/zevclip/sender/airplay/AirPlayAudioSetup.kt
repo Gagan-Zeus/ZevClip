@@ -49,7 +49,7 @@ object AirPlayAudioSetup {
         deviceId: String,
         timingPort: Int,
         ids: SessionIds = SessionIds(),
-        senderName: String = "ZevClip",
+        senderName: String = "ZevLink",
         senderInfo: AirPlaySenderInfo = AirPlaySenderInfo.fromDevice(deviceId, senderName)
     ): ByteArray {
         require(deviceId.isNotBlank()) { "AirPlay device id must not be blank." }

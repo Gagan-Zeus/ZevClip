@@ -207,10 +207,10 @@ object ZevClipStatusNotification {
 
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "ZevClip status",
+            "ZevLink status",
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "Shows whether ZevClip clipboard sync is running."
+            description = "Shows whether ZevLink clipboard sync is running."
             setShowBadge(false)
         }
         createNotificationChannel(channel)

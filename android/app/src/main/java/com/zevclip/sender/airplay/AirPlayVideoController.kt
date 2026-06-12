@@ -55,7 +55,7 @@ class AirPlayVideoController(
                 "model" to BPlist.string(senderInfo.model),
                 "osBuildVersion" to BPlist.string(senderInfo.osBuildVersion),
                 "clientBundleID" to BPlist.string("com.zevclip.sender"),
-                "clientProcName" to BPlist.string("ZevClip"),
+                "clientProcName" to BPlist.string("ZevLink"),
                 "mediaType" to BPlist.string("file"),
                 "streamType" to BPlist.int(1),
                 "rate" to BPlist.real(1.0),
@@ -260,6 +260,6 @@ class AirPlayVideoController(
 
     private companion object {
         private const val TAG = "ZevClipAirPlayVideo"
-        private const val USER_AGENT = "AirPlay/${AirPlaySenderInfo.SOURCE_VERSION} ZevClip"
+        private const val USER_AGENT = "AirPlay/${AirPlaySenderInfo.SOURCE_VERSION} ZevLink"
     }
 }
