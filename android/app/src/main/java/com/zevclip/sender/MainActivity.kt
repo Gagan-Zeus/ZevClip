@@ -172,7 +172,14 @@ class MainActivity : Activity() {
             }
         )
         showHomePage()
+        handleNotificationAction(intent)
         requestNotificationPermissionIfNeeded()
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleNotificationAction(intent)
     }
 
     override fun onStart() {
@@ -320,6 +327,14 @@ class MainActivity : Activity() {
         showingAirPlayBroadcast = false
         setContentView(createHomeView())
         refreshSyncStatuses()
+    }
+
+    private fun handleNotificationAction(intent: Intent?) {
+        if (intent?.action != ACTION_START_AIRPLAY_SCREEN_MIRROR) return
+        showHomePage()
+        mainHandler.post {
+            toggleAirPlayScreenMirror()
+        }
     }
 
     private fun showSettingsPage() {
@@ -1833,8 +1848,9 @@ class MainActivity : Activity() {
         Broadcast
     }
 
-    private companion object {
+    companion object {
         const val REQUEST_POST_NOTIFICATIONS = 2001
+        const val ACTION_START_AIRPLAY_SCREEN_MIRROR = "com.zevclip.sender.action.START_AIRPLAY_SCREEN_MIRROR"
         const val REQUEST_PHONE_CALLS = 2002
         const val REQUEST_RECORD_AUDIO = 2003
         const val REQUEST_AIRPLAY_CAPTURE = 2004

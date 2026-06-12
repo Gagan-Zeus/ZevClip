@@ -100,6 +100,11 @@
     <string name="notification_text_running">Clipboard sync is on</string>
     <string name="notification_status_connected">Connected</string>
     <string name="notification_status_not_connected">Not connected</string>
+    <string name="notification_airplay_audio_action">Audio</string>
+    <string name="notification_airplay_screen_mirror_action">Screen Mirror</string>
+    <string name="notification_airplay_stop_audio_action">Stop Audio</string>
+    <string name="notification_airplay_stop_screen_action">Stop Screen</string>
+    <string name="notification_airplay_stop_broadcast_action">Stop Broadcast</string>
     <string name="notification_title_stopped">ZevLink stopped</string>
     <string name="notification_text_stopped">Clipboard sync is off.</string>
     <string name="notification_mirror_compact_status">Notification mirroring: %1$s\n%2$s</string>

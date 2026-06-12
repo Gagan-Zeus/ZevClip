@@ -81,7 +81,8 @@ object ZevClipStatusNotification {
             .setShowWhen(false)
             .setOnlyAlertOnce(true)
 
-        notification.addAction(airPlayAction(context, airPlayStreaming, airPlayScreenMirroring, airPlayBroadcastStreaming))
+        airPlayActions(context, airPlayStreaming, airPlayScreenMirroring, airPlayBroadcastStreaming)
+            .forEach { notification.addAction(it) }
 
         return notification.build()
     }
@@ -126,52 +127,85 @@ object ZevClipStatusNotification {
         return "$connectedText · Mac $percentage%$chargingSuffix"
     }
 
-    private fun airPlayAction(
+    private fun airPlayActions(
         context: Context,
         isStreaming: Boolean,
         isScreenMirroring: Boolean,
         isBroadcastStreaming: Boolean
-    ): Notification.Action {
-        val intent = if (isBroadcastStreaming) {
+    ): List<Notification.Action> {
+        if (isBroadcastStreaming) {
+            return listOf(Notification.Action.Builder(
+                0,
+                context.getString(R.string.notification_airplay_stop_broadcast_action),
+                PendingIntent.getService(
+                    context,
+                    AIRPLAY_BROADCAST_ACTION_REQUEST_CODE,
+                    AirPlayBroadcastAudioService.stopIntent(context),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+            ).build())
+        }
+
+        val audioIntent = if (isStreaming) {
             PendingIntent.getService(
                 context,
-                AIRPLAY_ACTION_REQUEST_CODE,
-                AirPlayBroadcastAudioService.stopIntent(context),
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-        } else if (isScreenMirroring) {
-            PendingIntent.getService(
-                context,
-                AIRPLAY_ACTION_REQUEST_CODE,
-                AirPlayScreenMirrorService.stopIntent(context),
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-        } else if (isStreaming) {
-            PendingIntent.getService(
-                context,
-                AIRPLAY_ACTION_REQUEST_CODE,
+                AIRPLAY_AUDIO_ACTION_REQUEST_CODE,
                 AirPlayAudioCaptureService.stopIntent(context),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
         } else {
             PendingIntent.getActivity(
                 context,
-                AIRPLAY_ACTION_REQUEST_CODE,
+                AIRPLAY_AUDIO_ACTION_REQUEST_CODE,
                 Intent(context, AirPlayCaptureActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NO_ANIMATION or Intent.FLAG_ACTIVITY_NO_HISTORY
                 },
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
         }
-        val title = context.getString(
-            when {
-                isBroadcastStreaming -> R.string.stop_airplay_broadcast
-                isScreenMirroring -> R.string.stop_screen_mirror
-                isStreaming -> R.string.stop_airplay_audio
-                else -> R.string.start_airplay_audio
-            }
+        val screenMirrorIntent = if (isScreenMirroring) {
+            PendingIntent.getService(
+                context,
+                AIRPLAY_SCREEN_ACTION_REQUEST_CODE,
+                AirPlayScreenMirrorService.stopIntent(context),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+        } else {
+            PendingIntent.getActivity(
+                context,
+                AIRPLAY_SCREEN_ACTION_REQUEST_CODE,
+                Intent(context, MainActivity::class.java).apply {
+                    action = MainActivity.ACTION_START_AIRPLAY_SCREEN_MIRROR
+                    flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                },
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+        }
+
+        return listOf(
+            Notification.Action.Builder(
+                0,
+                context.getString(
+                    if (isStreaming) {
+                        R.string.notification_airplay_stop_audio_action
+                    } else {
+                        R.string.notification_airplay_audio_action
+                    }
+                ),
+                audioIntent
+            ).build(),
+            Notification.Action.Builder(
+                0,
+                context.getString(
+                    if (isScreenMirroring) {
+                        R.string.notification_airplay_stop_screen_action
+                    } else {
+                        R.string.notification_airplay_screen_mirror_action
+                    }
+                ),
+                screenMirrorIntent
+            ).build()
         )
-        return Notification.Action.Builder(0, title, intent).build()
     }
 
     private fun scheduleConnectionExpiryRefresh(context: Context) {
@@ -218,7 +252,9 @@ object ZevClipStatusNotification {
 
     const val CHANNEL_ID = "zevclip_status"
     const val NOTIFICATION_ID = 1042
-    private const val AIRPLAY_ACTION_REQUEST_CODE = 1043
+    private const val AIRPLAY_AUDIO_ACTION_REQUEST_CODE = 1043
+    private const val AIRPLAY_SCREEN_ACTION_REQUEST_CODE = 1044
+    private const val AIRPLAY_BROADCAST_ACTION_REQUEST_CODE = 1045
     private const val MAC_STATUS_STALE_MS = 90 * 1000L
     private const val EXPIRY_REFRESH_GRACE_MS = 1_000L
     private val refreshHandler = Handler(Looper.getMainLooper())
