@@ -3,6 +3,7 @@ package com.zevclip.sender
 import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.Dialog
 import android.content.ActivityNotFoundException
 import android.app.StatusBarManager
 import android.content.ComponentName
@@ -11,6 +12,7 @@ import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.Icon
 import android.media.projection.MediaProjectionManager
@@ -22,10 +24,16 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
+import android.text.Editable
+import android.text.InputFilter
 import android.text.InputType
+import android.text.TextWatcher
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.View
+import android.view.Window
 import android.view.WindowInsets
+import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
@@ -1130,38 +1138,133 @@ class MainActivity : Activity() {
     }
 
     private fun showScreenAirPlayCodeDialog(promptStarted: Boolean) {
-        val input = styledEditText().apply {
-            hint = getString(R.string.airplay_screen_code_dialog_hint)
-            inputType = InputType.TYPE_CLASS_NUMBER
-            imeOptions = EditorInfo.IME_ACTION_DONE
+        val dialog = Dialog(this).apply {
+            requestWindowFeature(Window.FEATURE_NO_TITLE)
+            setCanceledOnTouchOutside(true)
         }
-        val dialog = AlertDialog.Builder(this)
-            .setTitle(getString(R.string.airplay_screen_code_dialog_title))
-            .setMessage(
-                getString(
-                    if (promptStarted) {
-                        R.string.airplay_screen_code_dialog_message
-                    } else {
-                        R.string.airplay_screen_code_dialog_message_retry
+
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(22), dp(24), dp(22))
+            background = roundedDrawable(colors.surface, 30)
+            alpha = 0f
+            scaleX = 0.94f
+            scaleY = 0.94f
+            translationY = dp(22).toFloat()
+        }
+
+        content.addView(textView(getString(R.string.airplay_screen_code_dialog_title), 27f, colors.text).apply {
+            setTypeface(typeface, Typeface.BOLD)
+            setPadding(0, 0, 0, dp(6))
+        }, matchWidth())
+
+        content.addView(textView(
+            getString(
+                if (promptStarted) {
+                    R.string.airplay_screen_code_dialog_message
+                } else {
+                    R.string.airplay_screen_code_dialog_message_retry
+                }
+            ),
+            16f,
+            colors.muted
+        ).apply {
+            setLineSpacing(0f, 1.08f)
+        }, matchWidth())
+
+        val errorText = textView("", 13f, colors.error).apply {
+            visibility = View.GONE
+            setPadding(0, dp(8), 0, 0)
+        }
+
+        val codeBoxes = mutableListOf<EditText>()
+        val codeRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        repeat(4) { index ->
+            val box = EditText(this).apply {
+                inputType = InputType.TYPE_CLASS_NUMBER
+                imeOptions = if (index == 3) EditorInfo.IME_ACTION_DONE else EditorInfo.IME_ACTION_NEXT
+                isSingleLine = true
+                filters = arrayOf(InputFilter.LengthFilter(1))
+                textSize = 24f
+                gravity = Gravity.CENTER
+                setTypeface(typeface, Typeface.BOLD)
+                setTextColor(colors.text)
+                setHintTextColor(colors.muted)
+                background = roundedDrawable(colors.inputSurface, 18, colors.outline, 1)
+                setSelectAllOnFocus(true)
+            }
+            box.addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+                override fun afterTextChanged(s: Editable?) {
+                    errorText.visibility = View.GONE
+                    codeBoxes.forEach {
+                        it.background = roundedDrawable(colors.inputSurface, 18, colors.outline, 1)
                     }
-                )
+                    if ((s?.length ?: 0) == 1 && index < 3) {
+                        codeBoxes[index + 1].requestFocus()
+                    }
+                }
+            })
+            box.setOnKeyListener { _, keyCode, event ->
+                if (
+                    keyCode == KeyEvent.KEYCODE_DEL &&
+                    event.action == KeyEvent.ACTION_DOWN &&
+                    box.text.isEmpty() &&
+                    index > 0
+                ) {
+                    codeBoxes[index - 1].requestFocus()
+                    codeBoxes[index - 1].setSelection(codeBoxes[index - 1].text.length)
+                    true
+                } else {
+                    false
+                }
+            }
+            codeBoxes.add(box)
+            codeRow.addView(
+                box,
+                LinearLayout.LayoutParams(dp(54), dp(58)).apply {
+                    if (index > 0) {
+                        leftMargin = dp(8)
+                    }
+                }
             )
-            .setView(input)
-            .setPositiveButton(getString(R.string.airplay_screen_code_start), null)
-            .setNegativeButton(android.R.string.cancel) { _, _ ->
+        }
+        content.addView(codeRow, matchWidth(topMargin = 18))
+        content.addView(errorText, matchWidth())
+
+        val buttonRow = horizontalButtons(
+            quietButton(getString(android.R.string.cancel)) {
                 pendingAirPlayScreenCode = null
                 ZevClipPreferences.setAirPlayTestStatus(this, getString(R.string.airplay_screen_mirror_stopped))
                 refreshSyncStatuses()
-            }
-            .create()
-
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val code = input.text.toString().trim()
-                if (code.isBlank()) {
+                dialog.dismiss()
+            },
+            primaryButton(getString(R.string.airplay_screen_code_start)) {
+                val code = codeBoxes.joinToString("") { it.text.toString().trim() }
+                if (code.length != 4) {
+                    errorText.text = getString(R.string.airplay_screen_code_missing)
+                    errorText.visibility = View.VISIBLE
+                    codeBoxes.forEach {
+                        it.background = roundedDrawable(colors.inputSurface, 18, colors.error, 1)
+                    }
+                    codeRow.animate()
+                        .translationX(dp(5).toFloat())
+                        .setDuration(70)
+                        .withEndAction {
+                            codeRow.animate()
+                                .translationX(0f)
+                                .setDuration(90)
+                                .start()
+                        }
+                        .start()
+                    (codeBoxes.firstOrNull { it.text.isBlank() } ?: codeBoxes.first()).requestFocus()
                     ZevClipPreferences.setAirPlayTestStatus(this, getString(R.string.airplay_screen_code_missing))
                     refreshSyncStatuses()
-                    return@setOnClickListener
+                    return@primaryButton
                 }
                 pendingAirPlayScreenCode = code
                 dialog.dismiss()
@@ -1173,14 +1276,57 @@ class MainActivity : Activity() {
                     REQUEST_AIRPLAY_SCREEN_CAPTURE
                 )
             }
+        )
+        content.addView(buttonRow, matchWidth(topMargin = 20))
+
+        codeBoxes.last().setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                (buttonRow.getChildAt(1) as Button).performClick()
+                true
+            } else {
+                false
+            }
         }
+
         dialog.setOnDismissListener {
             if (pendingAirPlayScreenCode == null) {
                 refreshSyncStatuses()
             }
         }
+
+        dialog.setContentView(content)
         dialog.show()
-        input.requestFocus()
+        dialog.window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            attributes = attributes.apply {
+                dimAmount = 0.58f
+            }
+            setLayout(resources.displayMetrics.widthPixels - dp(42), WindowManager.LayoutParams.WRAP_CONTENT)
+        }
+
+        content.animate()
+            .alpha(1f)
+            .scaleX(1f)
+            .scaleY(1f)
+            .translationY(0f)
+            .setDuration(220)
+            .start()
+        codeRow.postDelayed({
+            codeRow.animate()
+                .scaleX(1.025f)
+                .scaleY(1.025f)
+                .setDuration(150)
+                .withEndAction {
+                    codeRow.animate()
+                        .scaleX(1f)
+                        .scaleY(1f)
+                        .setDuration(170)
+                        .start()
+                }
+                .start()
+        }, 260)
+        codeBoxes.first().requestFocus()
     }
 
     private fun toggleAirPlayBroadcastCapture() {
