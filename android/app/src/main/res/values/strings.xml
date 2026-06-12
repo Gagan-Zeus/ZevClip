@@ -4,7 +4,7 @@
     <string name="screen_title">ZevLink</string>
     <string name="screen_description">Connect your Android phone and Mac for clipboard sync, AirPlay, notifications, and calls.</string>
     <string name="settings_title">Settings</string>
-    <string name="settings_description">Permissions, Mac pairing, and manual connection details.</string>
+    <string name="settings_description">Pair your Mac, manage permissions, and add the clipboard tile.</string>
     <string name="done">Done</string>
     <string name="clipboard_sync_title">Clipboard</string>
     <string name="clipboard_sync_description">Keep copied text available on Android and Mac.</string>
@@ -30,6 +30,7 @@
     <string name="notifications_needed">Notifications: Enable notification access</string>
     <string name="calls_ready">Calls: Controls ready</string>
     <string name="calls_needed">Calls: Permission needed</string>
+    <string name="permissions_description">Enable the Android permissions ZevLink needs for clipboard, notifications, and calls.</string>
     <string name="airplay_title">AirPlay</string>
     <string name="airplay_description">Mirror your Android screen or stream audio to your Mac with AirPlay.</string>
     <string name="airplay_screen_code_waiting">Waiting for the Mac to show an AirPlay one-time code…</string>
@@ -85,8 +86,8 @@
     <string name="airplay_capture_android_q_required">Phone audio capture needs Android 10 or newer.</string>
     <string name="airplay_capture_record_audio_needed">Enable microphone/audio recording permission for phone audio capture.</string>
     <string name="airplay_capture_pairing_needed">Pair your Mac first.</string>
-    <string name="pair_mac_title">Pair Mac</string>
-    <string name="pair_mac_description">Scan the QR from the Mac app once. Use Discover if the network changes.</string>
+    <string name="pair_mac_title">Mac Connection</string>
+    <string name="pair_mac_description">Scan the QR code from ZevLink on Mac once. Use Reconnect Mac if your network changes.</string>
     <string name="manual_setup_title">Manual setup</string>
     <string name="manual_setup_description">Only use this if QR pairing cannot reach the Mac.</string>
     <string name="mac_pairing_saved">Mac pairing saved.</string>
@@ -175,7 +176,7 @@
     <string name="last_auto_send_status">Last auto-send: %1$s</string>
     <string name="auto_send_waiting_for_endpoint">Waiting for a valid Mac IP and port.</string>
     <string name="quick_settings_title">Quick Settings sync</string>
-    <string name="quick_settings_instructions">Reliable fallback: copy or cut text, swipe down twice, then tap Sync Clipboard. If the tile is not visible, tap edit/pencil and add it.</string>
+    <string name="quick_settings_instructions">Add a Sync Clipboard tile for apps or Android builds that block automatic clipboard reads.</string>
     <string name="add_quick_settings_tile">Add Sync Clipboard Tile</string>
     <string name="last_tile_status">Last tile sync: %1$s</string>
     <string name="sync_clipboard_tile_label">Sync Clipboard</string>

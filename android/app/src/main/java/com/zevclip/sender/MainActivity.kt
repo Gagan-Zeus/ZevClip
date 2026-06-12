@@ -61,6 +61,7 @@ class MainActivity : Activity() {
     private lateinit var discoverButton: Button
     private lateinit var discoveryStatusText: TextView
     private lateinit var pairingStatusText: TextView
+    private lateinit var quickSettingsStatusText: TextView
     private lateinit var androidReceiverStatusText: TextView
     private lateinit var androidReceiverLastReceivedText: TextView
     private lateinit var startClipboardSyncButton: Button
@@ -374,7 +375,6 @@ class MainActivity : Activity() {
     }
 
     private fun createSettingsView(): View {
-        val preferences = ZevClipPreferences.preferences(this)
         val content = pageContent()
 
         content.addView(headerRow(
@@ -388,6 +388,10 @@ class MainActivity : Activity() {
 
         content.addView(card(colors.surface).apply {
             addView(cardTitle(getString(R.string.permissions_title)))
+            addView(textView(getString(R.string.permissions_description), 14f, colors.muted).apply {
+                setPadding(0, dp(6), 0, dp(8))
+                setLineSpacing(0f, 1.06f)
+            })
 
             accessibilityStatusText = textView("", 15f, colors.muted)
             addView(accessibilityStatusText, matchWidth(topMargin = 8))
@@ -406,12 +410,17 @@ class MainActivity : Activity() {
                     startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                 }
             ), matchWidth(topMargin = 16))
+
+            addView(quietButton(getString(R.string.open_app_info)) {
+                openAppInfoSettings()
+            }, matchWidth(topMargin = 10))
         }, matchWidth(topMargin = 2))
 
         content.addView(card(colors.accentContainer).apply {
             addView(cardTitle(getString(R.string.pair_mac_title)))
             addView(textView(getString(R.string.pair_mac_description), 15f, colors.muted).apply {
                 setPadding(0, dp(6), 0, dp(14))
+                setLineSpacing(0f, 1.06f)
             })
 
             scanPairingQrButton = primaryButton(getString(R.string.scan_pairing_qr)) { scanPairingQr() }
@@ -426,61 +435,29 @@ class MainActivity : Activity() {
                 setPadding(0, dp(12), 0, 0)
             }
             addView(discoveryStatusText, matchWidth())
+
+            pairingStatusText = textView(getString(R.string.pairing_token_not_saved), 14f, colors.muted).apply {
+                setPadding(0, dp(8), 0, 0)
+            }
+            addView(pairingStatusText, matchWidth())
         }, matchWidth(topMargin = 16))
 
         content.addView(card(colors.surface).apply {
-            addView(cardTitle(getString(R.string.manual_setup_title)))
-            addView(textView(getString(R.string.manual_setup_description), 14f, colors.muted).apply {
-                setPadding(0, dp(6), 0, dp(12))
+            addView(cardTitle(getString(R.string.quick_settings_title)))
+            addView(textView(getString(R.string.quick_settings_instructions), 14f, colors.muted).apply {
+                setPadding(0, dp(6), 0, dp(14))
+                setLineSpacing(0f, 1.06f)
             })
 
-            addView(fieldLabel(R.string.pairing_token_label))
-            pairingTokenInput = styledEditText().apply {
-                hint = getString(R.string.pairing_token_hint)
-                inputType = InputType.TYPE_CLASS_TEXT or
-                    InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD or
-                    InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-                isSingleLine = false
-                maxLines = 2
-                minHeight = dp(78)
-                gravity = Gravity.CENTER_VERTICAL or Gravity.START
-                imeOptions = EditorInfo.IME_ACTION_DONE
-                setText(preferences.getString(ZevClipPreferences.KEY_PAIRING_TOKEN, ""))
-            }
-            addView(pairingTokenInput, matchWidth(topMargin = 6))
+            addView(tonalButton(getString(R.string.add_quick_settings_tile)) {
+                requestQuickSettingsTile()
+                refreshSyncStatuses()
+            }, matchWidth())
 
-            addView(tonalButton(getString(R.string.save_pairing_token)) {
-                savePairingTokenFromUi()
-            }, matchWidth(topMargin = 10))
-
-            pairingStatusText = textView(getString(R.string.pairing_token_not_saved), 14f, colors.muted).apply {
-                setPadding(0, dp(10), 0, dp(8))
+            quickSettingsStatusText = textView("", 14f, colors.muted).apply {
+                setPadding(0, dp(10), 0, 0)
             }
-            addView(pairingStatusText, matchWidth())
-
-            addView(fieldLabel(R.string.mac_ip_label))
-            ipAddressInput = styledEditText().apply {
-                hint = getString(R.string.mac_ip_hint)
-                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
-                isSingleLine = true
-                imeOptions = EditorInfo.IME_ACTION_NEXT
-                setText(preferences.getString(ZevClipPreferences.KEY_IP_ADDRESS, ""))
-            }
-            addView(ipAddressInput, matchWidth(topMargin = 6))
-
-            addView(fieldLabel(R.string.port_label))
-            portInput = styledEditText().apply {
-                inputType = InputType.TYPE_CLASS_NUMBER
-                isSingleLine = true
-                imeOptions = EditorInfo.IME_ACTION_NEXT
-                setText(
-                    preferences.getString(
-                        ZevClipPreferences.KEY_PORT,
-                        ZevClipPreferences.DEFAULT_PORT
-                    )
-                )
-            }
-            addView(portInput, matchWidth(topMargin = 6))
+            addView(quickSettingsStatusText, matchWidth())
         }, matchWidth(topMargin = 16))
 
         return scrollPage(content)
@@ -590,9 +567,15 @@ class MainActivity : Activity() {
                         if (isDestroyed) return@runOnUiThread
 
                         val selectedHost = reachableHost ?: payload.host
-                        ipAddressInput.setText(selectedHost)
-                        portInput.setText(String.format(Locale.US, "%d", payload.port))
-                        pairingTokenInput.setText(payload.token)
+                        if (::ipAddressInput.isInitialized) {
+                            ipAddressInput.setText(selectedHost)
+                        }
+                        if (::portInput.isInitialized) {
+                            portInput.setText(String.format(Locale.US, "%d", payload.port))
+                        }
+                        if (::pairingTokenInput.isInitialized) {
+                            pairingTokenInput.setText(payload.token)
+                        }
                         ZevClipPreferences.saveEndpoint(this, selectedHost, payload.port.toString())
                         ZevClipPreferences.savePairingToken(this, payload.token)
                         ZevClipPreferences.saveDeviceId(this, payload.deviceId)
@@ -776,6 +759,12 @@ class MainActivity : Activity() {
                 } else {
                     R.string.pairing_token_not_saved
                 }
+            )
+        }
+        if (::quickSettingsStatusText.isInitialized) {
+            quickSettingsStatusText.text = getString(
+                R.string.last_tile_status,
+                ZevClipPreferences.lastTileStatus(this)
             )
         }
 
