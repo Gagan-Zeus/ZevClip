@@ -111,6 +111,11 @@
             android:foregroundServiceType="mediaProjection" />
 
         <service
+            android:name=".AirPlayScreenMirrorService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
+
+        <service
             android:name=".AirPlayBroadcastAudioService"
             android:exported="false"
             android:foregroundServiceType="mediaProjection" />

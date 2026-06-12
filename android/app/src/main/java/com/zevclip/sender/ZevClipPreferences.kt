@@ -34,7 +34,9 @@ object ZevClipPreferences {
     const val KEY_EXPERIMENTAL_AIRPLAY_ENABLED = "experimental_airplay_enabled"
     const val KEY_AIRPLAY_TEST_STATUS = "airplay_test_status"
     const val KEY_AIRPLAY_PASSCODE = "airplay_passcode"
+    const val KEY_AIRPLAY_SCREEN_CODE = "airplay_screen_code"
     const val KEY_AIRPLAY_STREAMING = "airplay_streaming"
+    const val KEY_AIRPLAY_SCREEN_MIRRORING = "airplay_screen_mirroring"
     const val KEY_AIRPLAY_BROADCAST_STATUS = "airplay_broadcast_status"
     const val KEY_AIRPLAY_BROADCAST_STREAMING = "airplay_broadcast_streaming"
 
@@ -238,6 +240,16 @@ object ZevClipPreferences {
             .apply()
     }
 
+    fun airPlayScreenCode(context: Context): String {
+        return preferences(context).getString(KEY_AIRPLAY_SCREEN_CODE, "").orEmpty().trim()
+    }
+
+    fun setAirPlayScreenCode(context: Context, code: String) {
+        preferences(context).edit()
+            .putString(KEY_AIRPLAY_SCREEN_CODE, code.trim())
+            .apply()
+    }
+
     fun isAirPlayStreaming(context: Context): Boolean {
         return preferences(context).getBoolean(KEY_AIRPLAY_STREAMING, false)
     }
@@ -245,6 +257,16 @@ object ZevClipPreferences {
     fun setAirPlayStreaming(context: Context, isStreaming: Boolean) {
         preferences(context).edit()
             .putBoolean(KEY_AIRPLAY_STREAMING, isStreaming)
+            .apply()
+    }
+
+    fun isAirPlayScreenMirroring(context: Context): Boolean {
+        return preferences(context).getBoolean(KEY_AIRPLAY_SCREEN_MIRRORING, false)
+    }
+
+    fun setAirPlayScreenMirroring(context: Context, isMirroring: Boolean) {
+        preferences(context).edit()
+            .putBoolean(KEY_AIRPLAY_SCREEN_MIRRORING, isMirroring)
             .apply()
     }
 

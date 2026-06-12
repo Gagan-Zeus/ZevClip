@@ -54,6 +54,7 @@ object ZevClipStatusNotification {
         val syncEnabled = ZevClipPreferences.isClipboardSyncEnabled(context)
         val receiverRunning = ZevClipPreferences.isAndroidReceiverRunning(context)
         val airPlayStreaming = ZevClipPreferences.isAirPlayStreaming(context)
+        val airPlayScreenMirroring = ZevClipPreferences.isAirPlayScreenMirroring(context)
         val airPlayBroadcastStreaming = ZevClipPreferences.isAirPlayBroadcastStreaming(context)
         val title = if (syncEnabled && receiverRunning) {
             context.getString(R.string.notification_title_running)
@@ -77,12 +78,12 @@ object ZevClipStatusNotification {
             .setContentText(text)
             .setStyle(Notification.BigTextStyle().bigText(text))
             .setContentIntent(contentIntent)
-            .setOngoing((syncEnabled && receiverRunning) || airPlayStreaming || airPlayBroadcastStreaming)
+            .setOngoing((syncEnabled && receiverRunning) || airPlayStreaming || airPlayScreenMirroring || airPlayBroadcastStreaming)
             .setShowWhen(false)
             .setOnlyAlertOnce(true)
 
         if (AirPlayFeatureGate.isEnabled(context)) {
-            notification.addAction(airPlayAction(context, airPlayStreaming, airPlayBroadcastStreaming))
+            notification.addAction(airPlayAction(context, airPlayStreaming, airPlayScreenMirroring, airPlayBroadcastStreaming))
         }
 
         return notification.build()
@@ -97,7 +98,9 @@ object ZevClipStatusNotification {
             return "$connectionText\n$broadcastText"
         }
 
-        if (!ZevClipPreferences.isAirPlayStreaming(context)) return connectionText
+        if (!ZevClipPreferences.isAirPlayStreaming(context) &&
+            !ZevClipPreferences.isAirPlayScreenMirroring(context)
+        ) return connectionText
 
         val airPlayText = ZevClipPreferences.airPlayTestStatus(context)
             .takeIf { it.isNotBlank() }
@@ -129,6 +132,7 @@ object ZevClipStatusNotification {
     private fun airPlayAction(
         context: Context,
         isStreaming: Boolean,
+        isScreenMirroring: Boolean,
         isBroadcastStreaming: Boolean
     ): Notification.Action {
         val intent = if (isBroadcastStreaming) {
@@ -136,6 +140,13 @@ object ZevClipStatusNotification {
                 context,
                 AIRPLAY_ACTION_REQUEST_CODE,
                 AirPlayBroadcastAudioService.stopIntent(context),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+        } else if (isScreenMirroring) {
+            PendingIntent.getService(
+                context,
+                AIRPLAY_ACTION_REQUEST_CODE,
+                AirPlayScreenMirrorService.stopIntent(context),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
         } else if (isStreaming) {
@@ -158,6 +169,7 @@ object ZevClipStatusNotification {
         val title = context.getString(
             when {
                 isBroadcastStreaming -> R.string.stop_airplay_broadcast
+                isScreenMirroring -> R.string.stop_screen_mirror
                 isStreaming -> R.string.stop_airplay_audio
                 else -> R.string.start_airplay_audio
             }

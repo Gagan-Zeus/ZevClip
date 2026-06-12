@@ -37,6 +37,9 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import com.zevclip.sender.airplay.AirPlayFeatureGate
+import com.zevclip.sender.airplay.AirPlayIdentityStore
+import com.zevclip.sender.airplay.AirPlayPairSetupClient
+import com.zevclip.sender.airplay.AirPlayTarget
 import com.zevclip.sender.airplay.AirPlayToneTester
 import java.text.DateFormat
 import java.util.Date
@@ -62,6 +65,7 @@ class MainActivity : Activity() {
     private lateinit var airPlayTestStatusText: TextView
     private lateinit var airPlayPasscodeInput: EditText
     private lateinit var airPlayAudioButton: Button
+    private lateinit var airPlayScreenMirrorButton: Button
     private lateinit var airPlayBroadcastStatusText: TextView
     private lateinit var airPlayBroadcastDiscoverButton: Button
     private lateinit var airPlayBroadcastDevicesContainer: LinearLayout
@@ -75,6 +79,7 @@ class MainActivity : Activity() {
     private var airPlayBroadcastReceivers: List<AirPlayDiscoveredReceiver> = emptyList()
     private val selectedAirPlayBroadcastReceivers = linkedSetOf<String>()
     private var pendingAirPlayBroadcastTargets: List<AirPlayBroadcastAudioService.TargetSpec> = emptyList()
+    private var pendingAirPlayScreenCode: String? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private val preferencesListener = SharedPreferences.OnSharedPreferenceChangeListener {
@@ -100,6 +105,7 @@ class MainActivity : Activity() {
             key == ZevClipPreferences.KEY_AIRPLAY_TEST_STATUS ||
             key == ZevClipPreferences.KEY_AIRPLAY_PASSCODE ||
             key == ZevClipPreferences.KEY_AIRPLAY_STREAMING ||
+            key == ZevClipPreferences.KEY_AIRPLAY_SCREEN_MIRRORING ||
             key == ZevClipPreferences.KEY_AIRPLAY_BROADCAST_STATUS ||
             key == ZevClipPreferences.KEY_AIRPLAY_BROADCAST_STREAMING
         ) {
@@ -222,6 +228,28 @@ class MainActivity : Activity() {
             } else {
                 pendingAirPlayBroadcastTargets = emptyList()
                 ZevClipPreferences.setAirPlayBroadcastStatus(
+                    this,
+                    getString(R.string.airplay_capture_permission_missing)
+                )
+                refreshSyncStatuses()
+            }
+        } else if (requestCode == REQUEST_AIRPLAY_SCREEN_CAPTURE) {
+            if (resultCode == RESULT_OK && data != null) {
+                val screenCode = pendingAirPlayScreenCode.orEmpty()
+                pendingAirPlayScreenCode = null
+                if (screenCode.isBlank()) {
+                    ZevClipPreferences.setAirPlayTestStatus(
+                        this,
+                        getString(R.string.airplay_screen_code_missing)
+                    )
+                    refreshSyncStatuses()
+                    return
+                }
+                AirPlayScreenMirrorService.start(this, resultCode, data, screenCode)
+                refreshSyncStatuses()
+            } else {
+                pendingAirPlayScreenCode = null
+                ZevClipPreferences.setAirPlayTestStatus(
                     this,
                     getString(R.string.airplay_capture_permission_missing)
                 )
@@ -654,6 +682,15 @@ class MainActivity : Activity() {
                 }
             )
         }
+        if (::airPlayScreenMirrorButton.isInitialized) {
+            airPlayScreenMirrorButton.text = getString(
+                if (ZevClipPreferences.isAirPlayScreenMirroring(this)) {
+                    R.string.stop_screen_mirror
+                } else {
+                    R.string.start_screen_mirror
+                }
+            )
+        }
         if (::airPlayBroadcastStatusText.isInitialized) {
             airPlayBroadcastStatusText.text = getString(
                 R.string.airplay_broadcast_status,
@@ -814,6 +851,19 @@ class MainActivity : Activity() {
                     toggleAirPlayAudioCapture()
                 }
                 addView(airPlayAudioButton, matchWidth(topMargin = 10))
+
+                airPlayScreenMirrorButton = primaryButton(
+                    getString(
+                        if (ZevClipPreferences.isAirPlayScreenMirroring(this@MainActivity)) {
+                            R.string.stop_screen_mirror
+                        } else {
+                            R.string.start_screen_mirror
+                        }
+                    )
+                ) {
+                    toggleAirPlayScreenMirror()
+                }
+                addView(airPlayScreenMirrorButton, matchWidth(topMargin = 10))
 
                 addView(quietButton(getString(R.string.airplay_broadcast_audio)) {
                     showAirPlayBroadcastPage()
@@ -1040,6 +1090,118 @@ class MainActivity : Activity() {
             projectionManager.createScreenCaptureIntent(),
             REQUEST_AIRPLAY_CAPTURE
         )
+    }
+
+    private fun toggleAirPlayScreenMirror() {
+        if (ZevClipPreferences.isAirPlayScreenMirroring(this)) {
+            AirPlayScreenMirrorService.stop(this)
+            ZevClipPreferences.setAirPlayTestStatus(this, getString(R.string.airplay_screen_mirror_stopped))
+            refreshSyncStatuses()
+            return
+        }
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            ZevClipPreferences.setAirPlayTestStatus(this, getString(R.string.airplay_capture_android_q_required))
+            refreshSyncStatuses()
+            return
+        }
+
+        if (::airPlayPasscodeInput.isInitialized) {
+            ZevClipPreferences.setAirPlayPasscode(applicationContext, airPlayPasscodeInput.text.toString())
+        }
+
+        val endpoint = ZevClipPreferences.endpoint(this)
+        if (endpoint == null) {
+            ZevClipPreferences.setAirPlayTestStatus(this, getString(R.string.airplay_capture_pairing_needed))
+            refreshSyncStatuses()
+            return
+        }
+
+        if (ZevClipPreferences.isAirPlayStreaming(this)) {
+            AirPlayAudioCaptureService.stop(this)
+            ZevClipPreferences.setAirPlayTestStatus(this, getString(R.string.airplay_streaming_stopped))
+        }
+        if (ZevClipPreferences.isAirPlayBroadcastStreaming(this)) {
+            AirPlayBroadcastAudioService.stop(this)
+            ZevClipPreferences.setAirPlayBroadcastStatus(this, getString(R.string.airplay_broadcast_stopped))
+        }
+
+        requestScreenAirPlayCode(endpoint)
+    }
+
+    private fun requestScreenAirPlayCode(endpoint: Endpoint) {
+        ZevClipPreferences.setAirPlayTestStatus(this, getString(R.string.airplay_screen_code_waiting))
+        refreshSyncStatuses()
+        thread(name = "zevclip-airplay-screen-code", isDaemon = true) {
+            val promptStarted = runCatching {
+                val identity = AirPlayIdentityStore.getOrCreate(applicationContext)
+                val target = AirPlayTarget(
+                    host = endpoint.ipAddress,
+                    port = AirPlayTarget.DEFAULT_RTSP_PORT,
+                    name = "Paired Mac AirPlay"
+                )
+                AirPlayPairSetupClient(target, identity).use { setup ->
+                    setup.pairPinStart()
+                }
+            }.getOrDefault(false)
+            runOnUiThread {
+                showScreenAirPlayCodeDialog(promptStarted)
+            }
+        }
+    }
+
+    private fun showScreenAirPlayCodeDialog(promptStarted: Boolean) {
+        val input = styledEditText().apply {
+            hint = getString(R.string.airplay_screen_code_dialog_hint)
+            inputType = InputType.TYPE_CLASS_NUMBER
+            imeOptions = EditorInfo.IME_ACTION_DONE
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(getString(R.string.airplay_screen_code_dialog_title))
+            .setMessage(
+                getString(
+                    if (promptStarted) {
+                        R.string.airplay_screen_code_dialog_message
+                    } else {
+                        R.string.airplay_screen_code_dialog_message_retry
+                    }
+                )
+            )
+            .setView(input)
+            .setPositiveButton(getString(R.string.airplay_screen_code_start), null)
+            .setNegativeButton(android.R.string.cancel) { _, _ ->
+                pendingAirPlayScreenCode = null
+                ZevClipPreferences.setAirPlayTestStatus(this, getString(R.string.airplay_screen_mirror_stopped))
+                refreshSyncStatuses()
+            }
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val code = input.text.toString().trim()
+                if (code.isBlank()) {
+                    ZevClipPreferences.setAirPlayTestStatus(this, getString(R.string.airplay_screen_code_missing))
+                    refreshSyncStatuses()
+                    return@setOnClickListener
+                }
+                pendingAirPlayScreenCode = code
+                dialog.dismiss()
+                val projectionManager = getSystemService(MediaProjectionManager::class.java)
+                ZevClipPreferences.setAirPlayTestStatus(this, getString(R.string.airplay_screen_mirror_connecting))
+                refreshSyncStatuses()
+                startActivityForResult(
+                    projectionManager.createScreenCaptureIntent(),
+                    REQUEST_AIRPLAY_SCREEN_CAPTURE
+                )
+            }
+        }
+        dialog.setOnDismissListener {
+            if (pendingAirPlayScreenCode == null) {
+                refreshSyncStatuses()
+            }
+        }
+        dialog.show()
+        input.requestFocus()
     }
 
     private fun toggleAirPlayBroadcastCapture() {
@@ -1622,6 +1784,7 @@ class MainActivity : Activity() {
         const val REQUEST_RECORD_AUDIO = 2003
         const val REQUEST_AIRPLAY_CAPTURE = 2004
         const val REQUEST_AIRPLAY_BROADCAST_CAPTURE = 2005
+        const val REQUEST_AIRPLAY_SCREEN_CAPTURE = 2006
         val FALLBACK_BACKGROUND: Int = Color.rgb(247, 248, 250)
         val FALLBACK_TEXT: Int = Color.rgb(26, 28, 32)
         val FALLBACK_MUTED: Int = Color.rgb(91, 95, 103)

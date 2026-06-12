@@ -45,14 +45,19 @@ class AirPlayPairSetupClient(
         }.getOrDefault(false)
     }
 
-    fun pairSetup(passcode: String, transient: Boolean): Result {
+    fun pairSetup(
+        passcode: String,
+        transient: Boolean,
+        oneTime: Boolean = false,
+        preferredHkpHeader: String? = null
+    ): Result {
         val normalizedPasscode = passcode.trim()
         if (normalizedPasscode.isEmpty()) {
             return Result.Failure("AirPlay passcode is empty.")
         }
 
         return runCatching {
-            var hkpHeader = "4"
+            var hkpHeader = preferredHkpHeader ?: if (transient) "4" else "3"
             var responseM2 = post(
                 path = "/pair-setup",
                 body = Tlv8.encode(
@@ -64,7 +69,7 @@ class AirPlayPairSetupClient(
                 ),
                 extraHeaders = mapOf("X-Apple-HKP" to hkpHeader)
             )
-            if (responseM2.statusCode == 470) {
+            if (responseM2.statusCode == 470 && hkpHeader != "3") {
                 hkpHeader = "3"
                 responseM2 = post(
                     path = "/pair-setup",
@@ -86,6 +91,9 @@ class AirPlayPairSetupClient(
             }
 
             val tlvM2 = Tlv8.decode(responseM2.body)
+            tlvM2[Tlv8.Type.ERROR]?.let { error ->
+                return Result.Failure("pair-setup M2 returned AirPlay error ${error.firstOrNull()?.toInt() ?: -1}.")
+            }
             val salt = tlvM2[Tlv8.Type.SALT]
                 ?: return Result.Failure("pair-setup M2 did not include salt.")
             val serverPublicKey = tlvM2[Tlv8.Type.PUBLIC_KEY]
@@ -120,7 +128,7 @@ class AirPlayPairSetupClient(
                 return Result.Failure("pair-setup M4 server proof was not valid.")
             }
 
-            if (transient) {
+            if (transient || oneTime) {
                 val sessionKey = srp.sessionKey
                 return Result.TransientSuccess(
                     TransientSession(
@@ -221,6 +229,23 @@ class AirPlayPairSetupClient(
     }
 
     private fun post(
+        path: String,
+        body: ByteArray,
+        extraHeaders: Map<String, String>
+    ): AirPlayRtspClient.Response {
+        return runCatching {
+            postOnce(path, body, extraHeaders)
+        }.getOrElse { firstError ->
+            close()
+            runCatching {
+                postOnce(path, body, extraHeaders)
+            }.getOrElse {
+                throw firstError
+            }
+        }
+    }
+
+    private fun postOnce(
         path: String,
         body: ByteArray,
         extraHeaders: Map<String, String>

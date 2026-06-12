@@ -87,6 +87,30 @@ class AirPlayEncryptedChannel(
         }
     }
 
+    fun requestRaw(
+        method: String,
+        uri: String,
+        protocol: String,
+        headers: Map<String, String>,
+        body: ByteArray,
+        contentType: String?
+    ): AirPlayRtspClient.Response {
+        val requestText = buildString {
+            append(method.uppercase(Locale.US))
+            append(' ')
+            append(uri)
+            append(' ')
+            append(protocol)
+            append("\r\n")
+            headers.forEach { (name, value) -> append("$name: $value\r\n") }
+            if (contentType != null) append("Content-Type: $contentType\r\n")
+            if (body.isNotEmpty()) append("Content-Length: ${body.size}\r\n")
+            append("\r\n")
+        }
+        send(requestText.toByteArray(Charsets.US_ASCII) + body)
+        return parseRtspResponse(receiveRtspResponse())
+    }
+
     private fun readExact(size: Int): ByteArray {
         val buffer = ByteArray(size)
         var offset = 0

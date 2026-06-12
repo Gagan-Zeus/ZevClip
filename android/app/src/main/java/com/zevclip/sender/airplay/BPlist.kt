@@ -11,6 +11,7 @@ object BPlist {
     sealed class Value {
         data class BoolValue(val value: Boolean) : Value()
         data class IntValue(val value: Long) : Value()
+        data class RealValue(val value: Double) : Value()
         data class DataValue(val value: ByteArray) : Value() {
             override fun equals(other: Any?): Boolean {
                 return other is DataValue && value.contentEquals(other.value)
@@ -28,6 +29,7 @@ object BPlist {
     private sealed class ObjectValue {
         data class BoolObject(val value: Boolean) : ObjectValue()
         data class IntObject(val value: Long) : ObjectValue()
+        data class RealObject(val value: Double) : ObjectValue()
         data class DataObject(val value: ByteArray) : ObjectValue()
         data class StringObject(val value: String) : ObjectValue()
         data class ArrayObject(val refs: List<Int>) : ObjectValue()
@@ -43,6 +45,7 @@ object BPlist {
             objects[index] = when (nextValue) {
                 is Value.BoolValue -> ObjectValue.BoolObject(nextValue.value)
                 is Value.IntValue -> ObjectValue.IntObject(nextValue.value)
+                is Value.RealValue -> ObjectValue.RealObject(nextValue.value)
                 is Value.DataValue -> ObjectValue.DataObject(nextValue.value)
                 is Value.StringValue -> ObjectValue.StringObject(nextValue.value)
                 is Value.ArrayValue -> ObjectValue.ArrayObject(nextValue.values.map { add(it) })
@@ -127,6 +130,18 @@ object BPlist {
                     val length = 1 shl nibble
                     Value.IntValue(bytes.readSizedInt(offset + 1, length))
                 }
+                0x20 -> {
+                    val length = 1 shl nibble
+                    require(length == 4 || length == 8) { "Unsupported binary plist real length: $length" }
+                    val bits = bytes.readSizedInt(offset + 1, length)
+                    Value.RealValue(
+                        if (length == 4) {
+                            java.lang.Float.intBitsToFloat(bits.toInt()).toDouble()
+                        } else {
+                            java.lang.Double.longBitsToDouble(bits)
+                        }
+                    )
+                }
                 0x40 -> {
                     val count = readCount(bytes, offset, nibble)
                     Value.DataValue(bytes.copyOfRange(count.nextOffset, count.nextOffset + count.value))
@@ -188,6 +203,10 @@ object BPlist {
         return Value.IntValue(value)
     }
 
+    fun real(value: Double): Value.RealValue {
+        return Value.RealValue(value)
+    }
+
     fun bool(value: Boolean): Value.BoolValue {
         return Value.BoolValue(value)
     }
@@ -213,6 +232,10 @@ object BPlist {
                 }
                 output.write(0x10 or power)
                 output.writeSizedInt(objectValue.value, byteCount)
+            }
+            is ObjectValue.RealObject -> {
+                output.write(0x23)
+                output.writeSizedInt(java.lang.Double.doubleToLongBits(objectValue.value), 8)
             }
             is ObjectValue.DataObject -> {
                 writeCountMarker(output, 0x40, objectValue.value.size)
