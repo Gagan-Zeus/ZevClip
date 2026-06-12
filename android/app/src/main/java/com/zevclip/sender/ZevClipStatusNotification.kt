@@ -11,7 +11,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import com.zevclip.sender.airplay.AirPlayFeatureGate
 
 object ZevClipStatusNotification {
     fun update(context: Context) {
@@ -82,9 +81,7 @@ object ZevClipStatusNotification {
             .setShowWhen(false)
             .setOnlyAlertOnce(true)
 
-        if (AirPlayFeatureGate.isEnabled(context)) {
-            notification.addAction(airPlayAction(context, airPlayStreaming, airPlayScreenMirroring, airPlayBroadcastStreaming))
-        }
+        notification.addAction(airPlayAction(context, airPlayStreaming, airPlayScreenMirroring, airPlayBroadcastStreaming))
 
         return notification.build()
     }

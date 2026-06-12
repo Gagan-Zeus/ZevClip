@@ -220,7 +220,7 @@ object ZevClipPreferences {
     fun airPlayTestStatus(context: Context): String {
         return preferences(context).getString(
             KEY_AIRPLAY_TEST_STATUS,
-            "No AirPlay tone test yet."
+            "AirPlay is ready."
         ).orEmpty()
     }
 
